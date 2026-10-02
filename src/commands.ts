@@ -15,6 +15,11 @@ export const commandDefs = [
     .addStringOption((o) =>
       o.setName('which').setDescription('fast = quick offline voice, clone = your cloned sample').setRequired(true).addChoices({ name: 'fast', value: 'fast' }, { name: 'clone', value: 'clone' }),
     ),
+  new SlashCommandBuilder()
+    .setName('voices')
+    .setDescription('List cloneable voice samples from the voices/ folder, or pick one')
+    .addSubcommand((s) => s.setName('list').setDescription('Show the samples'))
+    .addSubcommand((s) => s.setName('use').setDescription('Use a sample for the clone voice').addStringOption((o) => o.setName('name').setDescription('Sample name (see /voices list)').setRequired(true))),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice' | 'voices';

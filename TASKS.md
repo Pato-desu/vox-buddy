@@ -76,7 +76,7 @@
   - **Done:** Test: `fast` and `clone` voices selectable by command and persisted in settings; falls back to `fast` if clone isn't ready.
 - [x] **M3.2 XTTS-v2 engine in the sidecar** · 2h
   - **Done:** Test: pytest with mocked model; lazy load, unload after idle (fake clock), streaming-friendly chunks.
-- [ ] **M3.3 Voice samples folder + `/voices`** · 2h
+- [x] **M3.3 Voice samples folder + `/voices`** · 2h
   - **Done:** Test: scans `voices/*.wav`, validates length (5–30 s) and format, `/voices` lists and selects; tests.
 - [ ] **M3.4 VRAM guard** · 1.5h
   - **Done:** Test: sidecar reports GPU memory; refuses clone load when free VRAM is too low and says so by voice and in `/status`.

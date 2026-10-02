@@ -11,6 +11,7 @@ import { LatencyRecorder } from './pipeline/metrics.js';
 import { formatStatus } from './status.js';
 import { startSession, type SessionHandle } from './session.js';
 import { SidecarClient } from './speech/client.js';
+import { formatVoices, scanVoices } from './voices.js';
 import { VoiceTts } from './speech/voice.js';
 import { ManagedConnection, createDiscordJoiner } from './voice/connection.js';
 import { DiscordSink } from './voice/discord-sink.js';
@@ -109,6 +110,18 @@ client.on(Events.InteractionCreate, async (i) => {
       await refreshClone();
       const note = which === 'clone' && !cloneReady ? " The clone voice isn't ready yet, so I'll use the fast voice for now." : '';
       await i.reply({ content: `Voice set to ${which}.${note}`, ephemeral: true });
+    } else if (i.commandName === 'voices') {
+      const samples = scanVoices('voices');
+      if (i.options.getSubcommand() === 'use') {
+        const name = i.options.getString('name', true);
+        const found = samples.find((s) => s.name === name);
+        if (!found?.ok) return void (await i.reply({ content: found ? `${name} is unusable: ${found.problem}` : `No sample called ${name}.\n${formatVoices(samples, settings.get().cloneSample)}`, ephemeral: true }));
+        settings.update({ voice: 'clone', cloneSample: name });
+        await refreshClone();
+        await i.reply({ content: `Cloning ${name}.${cloneReady ? '' : " The clone engine isn't up yet, so I'll use the fast voice meanwhile."}`, ephemeral: true });
+      } else {
+        await i.reply({ content: formatVoices(samples, settings.get().cloneSample), ephemeral: true });
+      }
     } else if (i.commandName === 'hush') {
       const a = active.get(guild.id);
       if (!a) return void (await i.reply({ content: "I'm not in a voice channel.", ephemeral: true }));
