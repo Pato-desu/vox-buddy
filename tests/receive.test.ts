@@ -67,3 +67,49 @@ describe('SwitchableReceiver', () => {
     expect(() => new SwitchableReceiver().subscribePcm('x')).toThrow('not connected');
   });
 });
+
+describe('real Discord audio: streams end without silence frames', () => {
+  it('finishes the utterance shortly after the stream ends, and a pause mid-sentence stays one utterance', async () => {
+    const { attachReceive, STREAM_END_SILENCE_MS } = await import('../src/voice/receive.js');
+    const { PassThrough } = await import('node:stream');
+    const timers: { fn: () => void; ms: number; cancelled: boolean }[] = [];
+    let onStart: (id: string) => void = () => {};
+    const streams: InstanceType<typeof PassThrough>[] = [];
+    const out: number[] = [];
+    const loud = (ms: number): Buffer => {
+      const n = (48000 * ms) / 1000;
+      const a = new Int16Array(n * 2);
+      for (let i = 0; i < n; i++) a[i * 2] = a[i * 2 + 1] = Math.round(6000 * Math.sin((i * 2 * Math.PI * 220) / 48000));
+      return Buffer.from(a.buffer);
+    };
+    attachReceive(
+      { onSpeakingStart: (l) => (onStart = l), subscribePcm: () => (streams.push(new PassThrough()), streams.at(-1)!) },
+      {
+        capture: { silenceEndMs: 800, minUtteranceMs: 400, maxUtteranceMs: 20_000, energyGate: 500 },
+        resolveSpeaker: (id) => ({ userId: id, userName: id, isBot: false }),
+        onUtterance: (u) => out.push(u.pcm.length),
+        setTimer: (fn, ms) => timers.push({ fn, ms, cancelled: false }) - 1,
+        clearTimer: (h) => void (timers[h as number]!.cancelled = true),
+      },
+    );
+    const burst = async (): Promise<void> => {
+      onStart('a');
+      streams.at(-1)!.write(loud(600));
+      streams.at(-1)!.end(); // Discord stops sending: the stream just ends
+      await new Promise((r) => setImmediate(r));
+    };
+    onStart('a');
+    streams.at(-1)!.write(loud(600));
+    streams.at(-1)!.end();
+    await new Promise((r) => setImmediate(r));
+    expect(out).toEqual([]); // nothing yet: still within the 800 ms silence window
+    expect(timers.at(-1)!.ms).toBe(800 - STREAM_END_SILENCE_MS);
+    // the speaker resumes before the window closes: same utterance, timer replaced
+    await burst();
+    expect(timers[0]!.cancelled).toBe(true);
+    expect(out).toEqual([]);
+    timers.at(-1)!.fn(); // silence window elapsed
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBeGreaterThanOrEqual(16000 * 1.1); // both bursts in one utterance
+  });
+});

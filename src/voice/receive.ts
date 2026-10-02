@@ -28,16 +28,31 @@ export interface ReceiveOptions {
   /** Called the moment a user starts speaking (used for barge-in). */
   onSpeechStart?: (userId: string) => void;
   onError?: (e: Error) => void;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
 }
+
+/** adaptReceiver ends a user's stream after this much silence (Discord sends no packets while quiet). */
+export const STREAM_END_SILENCE_MS = 300;
 
 /** Wires per-user audio into utterance detectors. One detector per user, kept across bursts. */
 export function attachReceive(receiver: ReceiverLike, o: ReceiveOptions): void {
   const detectors = new Map<string, UtteranceDetector>();
   const active = new Set<string>();
+  // Real Discord audio carries no silence frames: when a stream ends, the detector must be told how long it has
+  // been quiet. Wait out the rest of silenceEndMs (a brief pause mid-sentence continues the same utterance).
+  const setTimer = o.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
+  const clearTimer = o.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const endTimers = new Map<string, unknown>();
+  const cancelEnd = (userId: string): void => {
+    if (endTimers.has(userId)) clearTimer(endTimers.get(userId));
+    endTimers.delete(userId);
+  };
   receiver.onSpeakingStart((userId) => {
     const speaker = o.resolveSpeaker(userId);
     if (!speaker || speaker.isBot) return;
     o.onSpeechStart?.(userId);
+    cancelEnd(userId);
     if (active.has(userId)) return;
     active.add(userId);
     let det = detectors.get(userId);
@@ -50,7 +65,17 @@ export function attachReceive(receiver: ReceiverLike, o: ReceiveOptions): void {
     stream.on('data', (buf: Buffer) => {
       d.push(downmix48kStereoTo16kMono(new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 2))));
     });
-    const done = (): void => void active.delete(userId);
+    const done = (): void => {
+      if (!active.delete(userId)) return;
+      cancelEnd(userId);
+      endTimers.set(
+        userId,
+        setTimer(() => {
+          endTimers.delete(userId);
+          d.end();
+        }, Math.max(0, o.capture.silenceEndMs - STREAM_END_SILENCE_MS)),
+      );
+    };
     stream.on('end', done);
     stream.on('close', done);
     stream.on('error', (e) => {
