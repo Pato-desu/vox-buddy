@@ -44,6 +44,7 @@ export class Orchestrator {
       sentences.push(sentence);
       deps.trace?.('sentence', sentence);
       const audio = tts.synthesize(sentence, signal).then((c) => (deps.trace?.('audio-ready', sentence), c));
+      audio.catch(() => {}); // if an earlier sentence failed, nobody awaits this one
       tail = tail.then(async () => {
         const chunk = await audio;
         if (!signal?.aborted) {
@@ -51,20 +52,26 @@ export class Orchestrator {
           deps.trace?.('audio-queued', sentence);
         }
       });
+      tail.catch(() => {}); // `await tail` below rethrows; this keeps a mid-stream failure from being reported as unhandled
     };
 
     let first = true;
-    for await (const delta of llm.stream({ speaker: utt.userName, text: heard }, signal)) {
-      if (first) {
-        first = false;
-        deps.trace?.('llm-first-delta');
+    try {
+      for await (const delta of llm.stream({ speaker: utt.userName, text: heard }, signal)) {
+        if (first) {
+          first = false;
+          deps.trace?.('llm-first-delta');
+        }
+        if (signal?.aborted || limiter.capped) break;
+        splitter.push(delta).forEach(speak);
       }
-      if (signal?.aborted || limiter.capped) break;
-      splitter.push(delta).forEach(speak);
+      deps.trace?.('llm-done');
+      if (!signal?.aborted) splitter.flush().forEach(speak);
+      await tail;
+    } catch (e) {
+      tail.catch(() => {}); // the turn is failing with `e` already
+      throw e;
     }
-    deps.trace?.('llm-done');
-    if (!signal?.aborted) splitter.flush().forEach(speak);
-    await tail;
     return { heard, sentences };
   }
 }

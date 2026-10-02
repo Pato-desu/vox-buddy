@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FakeLlm, FakeStt } from '../src/pipeline/fakes.js';
 import { Orchestrator } from '../src/pipeline/orchestrator.js';
 import type { AudioChunk, Llm, Player, Stt, Tts } from '../src/pipeline/types.js';
 
@@ -50,5 +51,24 @@ describe('Orchestrator', () => {
     });
     await o.handle(utt, ctl.signal);
     expect(played).toHaveLength(0);
+  });
+});
+
+describe('Orchestrator failures stay contained', () => {
+  it('a TTS failure mid-stream rejects the turn without unhandled rejections', async () => {
+    const unhandled: unknown[] = [];
+    const h = (e: unknown): void => void unhandled.push(e);
+    process.on('unhandledRejection', h);
+    const orch = new Orchestrator({
+      stt: new FakeStt('hey buddy what is up'),
+      llm: new FakeLlm(() => ['First sentence here. ', 'Second sentence here. ', 'Third sentence here.'], { llmFirstMs: 0, llmDeltaMs: 5 }),
+      tts: { synthesize: async (s) => { if (s.startsWith('First') || s.startsWith('Second')) throw new Error('tts down'); return { pcm: new Int16Array(1), sampleRate: 16000 }; } },
+      player: { enqueue() {}, stop() {} },
+      minSentenceChars: 8,
+    });
+    await expect(orch.handle({ userId: 'a', userName: 'A', pcm: new Int16Array(16000), startedAt: 0 })).rejects.toThrow('tts down');
+    await new Promise((r) => setTimeout(r, 20));
+    process.off('unhandledRejection', h);
+    expect(unhandled).toEqual([]);
   });
 });

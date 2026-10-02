@@ -102,7 +102,7 @@
 **Checkpoint M4:** the bot survives restarts, drops and failures during a long session.
 
 ## M5 — Release candidate
-- [ ] **M5.1 Full simulated soak** · 2h
+- [x] **M5.1 Full simulated soak** · 2h
   - **Done:** Test: 200 simulated turns with random overlaps and faults; no leaks, hangs or crashes.
 - [ ] **M5.2 Latency budget test** · 1.5h
   - **Done:** Test: with realistic fake delays the first word lands within 2 s.
