@@ -13,7 +13,7 @@ Discord voice bot: hears people in a voice channel, answers out loud (Gemini bra
 ## Definition of done
 - The check command and the smoke test pass, with no console errors. Logic has tests. No secret is ever committed or logged.
 ## Environment notes
-- Cloud runs: Linux VM with the default "Trusted" network (package registries, GitHub, *.googleapis.com). Headless browser: not yet determined.
+- Cloud runs: Linux VM with the default "Trusted" network (package registries, GitHub, *.googleapis.com). Node here is v22 (engines >=22). Headless browser: Playwright (npm devDependency) with the preinstalled Chromium at /opt/pw-browsers/chromium via executablePath (`npm run smoke` picks it up; override with CHROMIUM_PATH). Do not run `playwright install`. Python 3.11 + pip pytest/fastapi/httpx are installed in the VM.
 ## Owner
 - Writes in English. Owner-facing notes are in English. Notify: email patriciovercesi@gmail.com. Run budget: 90 min.
 - Commits end with: Co-Authored-By: Claude <noreply@anthropic.com>

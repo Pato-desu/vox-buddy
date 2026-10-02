@@ -5,5 +5,5 @@ export default tseslint.config(
   { ignores: ['dist/**', 'node_modules/**', 'services/**', '.autodev/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { files: ['**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } } },
+  { files: ['**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', document: 'readonly', window: 'readonly' } } },
 );

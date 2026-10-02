@@ -19,11 +19,11 @@
   - **Done:** Test: `src/config.ts` holds every number from SPEC §5 with types; env loader (`DISCORD_TOKEN`, `GOOGLE_API_KEY`, `GUILD_ID`) validates and never prints secrets; `.env.example` exists; unit tests.
 - [x] **M0.3 Check command** · 1h
   - **Done:** Test: `npm run check` runs typecheck, lint, vitest and the sidecar's pytest (skipped with a clear message if Python is absent), then builds; exits non-zero on any failure.
-- [ ] **M0.4 Build report generator** · 2h
+- [x] **M0.4 Build report generator** · 2h
   - **Done:** Test: `npm run demo` writes `dist/demo.html`, a single self-contained page fragment (≤ 15 MB, no external requests except Google Fonts, no eval) showing build number, what's new, what to try, decisions waiting, from `.autodev/devinfo.json`.
-- [ ] **M0.5 Smoke test** · 1.5h
+- [x] **M0.5 Smoke test** · 1.5h
   - **Done:** Browser: `npm run smoke` loads `dist/demo.html` in headless Chromium inside a strict-CSP shell page, fails on console errors, saves a screenshot to `.autodev/screens/`.
-- [ ] **M0.6 Publish Build 1** · 1h
+- [x] **M0.6 Publish Build 1** · 1h
   - **Done:** Owner-visible: the private demo URL shows Build 1; `AUTODEV.md` updated.
 **Checkpoint M0:** the demo page shows Build 1 with its build info and the plan.
 
