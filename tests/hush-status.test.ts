@@ -66,3 +66,14 @@ describe('formatStatus', () => {
     expect(text).toContain('no replies yet');
   });
 });
+
+describe('formatStatus GPU and voice fallback', () => {
+  it('shows free VRAM and the voice actually used', () => {
+    const text = formatStatus({
+      channelName: 'General', hushed: false, settings: { voice: 'clone', cloneSample: 'me' },
+      sidecar: { ok: true }, latency: null, gpu: { free_mb: 900, total_mb: 8000 }, effectiveVoice: 'fast',
+    });
+    expect(text).toContain('but using fast right now');
+    expect(text).toContain('GPU memory: 900 MB free of 8000 MB (too low for the clone voice)');
+  });
+});

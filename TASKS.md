@@ -78,7 +78,7 @@
   - **Done:** Test: pytest with mocked model; lazy load, unload after idle (fake clock), streaming-friendly chunks.
 - [x] **M3.3 Voice samples folder + `/voices`** · 2h
   - **Done:** Test: scans `voices/*.wav`, validates length (5–30 s) and format, `/voices` lists and selects; tests.
-- [ ] **M3.4 VRAM guard** · 1.5h
+- [x] **M3.4 VRAM guard** · 1.5h
   - **Done:** Test: sidecar reports GPU memory; refuses clone load when free VRAM is too low and says so by voice and in `/status`.
 - [ ] **M3.5 Clone quality and latency pass** · 2h
   - **Done:** Test: sentence-level clone TTS with warm-up on `/voice clone`; measured latency recorded in the report from simulation; Owner check for the real number.

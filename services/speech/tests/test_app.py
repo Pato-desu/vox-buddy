@@ -23,7 +23,7 @@ def test_decode_rejects_garbage_and_stereo():
 
 def test_health(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json() == {"ok": True, "stt": "fake", "tts": "fake", "clone": None}
+    assert r.status_code == 200 and r.json() == {"ok": True, "stt": "fake", "tts": "fake", "clone": None, "gpu": None}
 
 
 def test_stt_is_deterministic(client):
@@ -65,3 +65,22 @@ def test_clone_voice_routes_to_clone_engine_and_rejects_when_missing():
     _, rate = decode_wav(r.content)
     assert rate == 24000  # the clone engine's rate, not the fast voice's 16000
     assert c.post("/tts", json={"text": "hi", "voice": "robot"}).status_code == 400
+
+
+def test_low_vram_clone_is_a_409_with_the_reason():
+    from app.real_engines import LowVramError
+
+    class Broke:
+        name = "xtts-v2"
+        sample_rate = 24000
+
+        def gpu(self):
+            return {"free_mb": 900, "total_mb": 8000}
+
+        def synthesize(self, text, sample):
+            raise LowVramError("low vram: 900 MB free")
+
+    c = TestClient(create_app(clone=Broke()))
+    assert c.get("/health").json()["gpu"] == {"free_mb": 900, "total_mb": 8000}
+    r = c.post("/tts", json={"text": "hi there", "voice": "clone", "sample": "me"})
+    assert r.status_code == 409 and "low vram" in r.json()["detail"]

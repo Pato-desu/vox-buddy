@@ -132,7 +132,7 @@ client.on(Events.InteractionCreate, async (i) => {
       await i.deferReply({ ephemeral: true });
       const sidecarHealth = await sidecar.health();
       await i.editReply(
-        formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null }),
+        formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
       );
     } else if (i.commandName === 'leave') {
       const a = active.get(guild.id);

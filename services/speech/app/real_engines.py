@@ -71,6 +71,28 @@ class PiperTts:
         return b"".join(voice.synthesize_stream_raw(text))
 
 
+class LowVramError(ValueError):
+    """Not enough free GPU memory to load the clone model."""
+
+
+def nvidia_smi_memory() -> tuple[int, int] | None:
+    """(free_mb, total_mb) of the first GPU via nvidia-smi, or None without an NVIDIA GPU."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        ).stdout.splitlines()[0]
+        free, total = (int(x.strip()) for x in out.split(","))
+        return free, total
+    except Exception:
+        return None
+
+
 class XttsClone:
     """Coqui XTTS-v2 voice cloning from a reference wav in `voices_dir`.
 
@@ -88,6 +110,8 @@ class XttsClone:
         loader: Callable[[], Any] | None = None,
         clock: Callable[[], float] | None = None,
         on_unload: Callable[[], None] | None = None,
+        vram_probe: Callable[[], tuple[int, int] | None] = nvidia_smi_memory,
+        min_free_mb: int = 4000,
     ) -> None:
         import time
 
@@ -96,8 +120,15 @@ class XttsClone:
         self._loader = loader
         self._clock = clock or time.monotonic
         self._on_unload = on_unload
+        self._vram_probe = vram_probe
+        self.min_free_mb = min_free_mb
         self._model: Any = None
         self._last_used = 0.0
+
+    def gpu(self) -> dict | None:
+        """Free and total GPU memory in MB, for /health. None when there is no NVIDIA GPU."""
+        mem = self._vram_probe()
+        return None if mem is None else {"free_mb": mem[0], "total_mb": mem[1]}
 
     @property
     def loaded(self) -> bool:
@@ -113,6 +144,9 @@ class XttsClone:
 
     def _load(self) -> Any:
         if self._model is None:
+            mem = self._vram_probe()
+            if mem is not None and mem[0] < self.min_free_mb:
+                raise LowVramError(f"low vram: {mem[0]} MB free, clone voice needs {self.min_free_mb} MB")
             loader = self._loader
             if loader is None:
 

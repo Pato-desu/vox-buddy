@@ -125,3 +125,23 @@ def test_xtts_rejects_bad_samples(tmp_path, sample):
     clone, _ = make_clone(tmp_path, lambda: 0.0, [])
     with pytest.raises(ValueError):
         clone.synthesize("hello", sample)
+
+
+def test_xtts_refuses_to_load_when_vram_is_low(tmp_path):
+    from app.real_engines import LowVramError, XttsClone
+
+    (tmp_path / "me.wav").write_bytes(b"RIFF")
+    loads = []
+    clone = XttsClone(voices_dir=str(tmp_path), loader=lambda: loads.append(1) or FakeXtts(), vram_probe=lambda: (1200, 8000), min_free_mb=4000)
+    with pytest.raises(LowVramError, match="low vram"):
+        clone.synthesize("hello", "me")
+    assert loads == [] and clone.gpu() == {"free_mb": 1200, "total_mb": 8000}
+
+
+def test_xtts_loads_when_vram_is_enough_or_unknown(tmp_path):
+    from app.real_engines import XttsClone
+
+    (tmp_path / "me.wav").write_bytes(b"RIFF")
+    for probe in (lambda: (6000, 8000), lambda: None):
+        clone = XttsClone(voices_dir=str(tmp_path), loader=FakeXtts, vram_probe=probe)
+        assert clone.synthesize("hello", "me")

@@ -8,6 +8,11 @@ export interface SidecarOptions {
   fetchImpl?: typeof fetch;
 }
 
+export interface GpuMemory {
+  free_mb: number;
+  total_mb: number;
+}
+
 export class SidecarError extends Error {
   constructor(message: string, public readonly status?: number) {
     super(message);
@@ -79,7 +84,10 @@ export class SidecarClient implements Stt, Tts {
           last = new SidecarError(`sidecar ${path} returned ${res.status}`, res.status);
           continue;
         }
-        if (!res.ok) throw new SidecarError(`sidecar ${path} returned ${res.status}`, res.status);
+        if (!res.ok) {
+          const detail = (await res.text().catch(() => '')).slice(0, 200);
+          throw new SidecarError(`sidecar ${path} returned ${res.status}${detail ? `: ${detail}` : ''}`, res.status);
+        }
         return res;
       } catch (e) {
         if (e instanceof SidecarError) throw e;
@@ -90,11 +98,11 @@ export class SidecarClient implements Stt, Tts {
     throw last instanceof SidecarError ? last : new SidecarError(`sidecar unreachable: ${(last as Error)?.message ?? last}`);
   }
 
-  async health(): Promise<{ ok: boolean; stt?: string; tts?: string; clone?: string | null }> {
+  async health(): Promise<{ ok: boolean; stt?: string; tts?: string; clone?: string | null; gpu?: GpuMemory | null }> {
     try {
       const res = await this.f(this.o.baseUrl + '/health', { signal: AbortSignal.timeout(this.timeoutMs) });
       if (!res.ok) return { ok: false };
-      return (await res.json()) as { ok: boolean; stt?: string; tts?: string; clone?: string | null };
+      return (await res.json()) as { ok: boolean; stt?: string; tts?: string; clone?: string | null; gpu?: GpuMemory | null };
     } catch {
       return { ok: false };
     }

@@ -13,11 +13,16 @@ export interface VoiceTtsOptions {
   log?: (msg: string) => void;
 }
 
+/** Said once (in the fast voice) when the clone voice is refused for lack of GPU memory. */
+export const LOW_VRAM_NOTICE = "My graphics card is too full for my cloned voice, so I'm using my regular one for now.";
+
 /**
  * Tts that follows the `/voice` setting. The clone voice falls back to the fast voice when the clone isn't ready
  * or the sidecar refuses it, so the bot never goes silent over a voice choice.
  */
 export class VoiceTts implements Tts {
+  private announced = false;
+
   constructor(private readonly o: VoiceTtsOptions) {}
 
   /** The voice that will actually be used right now. */
@@ -29,10 +34,17 @@ export class VoiceTts implements Tts {
     const { cloneSample } = this.o.settings();
     if (this.effectiveVoice === 'clone') {
       try {
-        return await this.o.backend.synthesizeVoice(sentence, 'clone', cloneSample, signal);
+        const out = await this.o.backend.synthesizeVoice(sentence, 'clone', cloneSample, signal);
+        this.announced = false;
+        return out;
       } catch (e) {
         if (signal?.aborted) throw e;
-        this.o.log?.(`clone voice failed, using fast voice: ${(e as Error).message}`);
+        const message = (e as Error).message;
+        this.o.log?.(`clone voice failed, using fast voice: ${message}`);
+        if (message.includes('low vram') && !this.announced) {
+          this.announced = true; // once per episode, not on every sentence
+          return this.o.backend.synthesizeVoice(`${LOW_VRAM_NOTICE} ${sentence}`, 'fast', null, signal);
+        }
       }
     }
     return this.o.backend.synthesizeVoice(sentence, 'fast', null, signal);

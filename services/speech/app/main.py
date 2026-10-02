@@ -17,6 +17,11 @@ class TtsRequest(BaseModel):
     sample: str | None = None
 
 
+def _gpu(clone: object) -> dict | None:
+    probe = getattr(clone, "gpu", None)
+    return probe() if probe else None
+
+
 def create_app(
     stt: SttEngine | None = None, tts: TtsEngine | None = None, clone: CloneEngine | None = None
 ) -> FastAPI:
@@ -26,7 +31,7 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict:
-        return {"ok": True, "stt": stt.name, "tts": tts.name, "clone": clone.name if clone else None}
+        return {"ok": True, "stt": stt.name, "tts": tts.name, "clone": clone.name if clone else None, "gpu": _gpu(clone)}
 
     @app.post("/stt")
     async def stt_route(request: Request) -> dict:

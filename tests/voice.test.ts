@@ -43,3 +43,27 @@ describe('VoiceTts', () => {
     expect(r.calls).toEqual(['clone:me', 'fast:null']);
   });
 });
+
+describe('VoiceTts low-VRAM notice', () => {
+  it('says why once, then just uses the fast voice', async () => {
+    const texts: string[] = [];
+    const tts = new VoiceTts({
+      backend: {
+        synthesizeVoice: async (t, v) => {
+          texts.push(`${v}:${t}`);
+          if (v === 'clone') throw new Error('sidecar /tts returned 409: low vram: 900 MB free');
+          return chunk(16000);
+        },
+      },
+      settings: () => ({ voice: 'clone', cloneSample: 'me' }),
+      cloneReady: () => true,
+    });
+    await tts.synthesize('First one.');
+    await tts.synthesize('Second one.');
+    expect(texts.filter((t) => t.startsWith('fast:'))).toEqual([
+      expect.stringContaining('graphics card is too full for my cloned voice'),
+      'fast:Second one.',
+    ]);
+    expect(texts[1]).toContain('First one.');
+  });
+});
