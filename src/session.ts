@@ -15,6 +15,10 @@ export interface SessionDeps {
   /** If given, replies are remembered in it (cleared by the caller on leave). */
   memory?: ConversationMemory;
   resolveSpeaker: (userId: string) => Speaker | undefined;
+  /** Minimum quiet time between the end of one reply and the start of the next. */
+  botTurnGapMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
   log?: (msg: string) => void;
 }
 
@@ -25,10 +29,16 @@ export interface SessionDeps {
 export function startSession(d: SessionDeps): { whenIdle: () => Promise<void> } {
   const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars });
   let chain: Promise<void> = Promise.resolve();
+  const now = d.now ?? Date.now;
+  const sleep = d.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let lastReplyEnd = -Infinity;
   const onUtterance = (u: Utterance): void => {
     chain = chain
       .then(async () => {
+        const wait = (d.botTurnGapMs ?? 0) - (now() - lastReplyEnd);
+        if (wait > 0) await sleep(wait);
         const r = await orch.handle(u);
+        if (r) lastReplyEnd = now();
         if (r) d.log?.(`turn: ${u.userName} → ${r.sentences.length} sentence(s)`);
       })
       .catch((e: Error) => d.log?.(`turn failed: ${e.message}`)); // one bad turn never kills the session

@@ -1,4 +1,5 @@
 import type { Llm, Player, Stt, Tts, Utterance } from './types.js';
+import { isJunkTranscript } from './policy.js';
 import { SentenceSplitter } from './sentences.js';
 
 export interface OrchestratorDeps {
@@ -7,8 +8,6 @@ export interface OrchestratorDeps {
   tts: Tts;
   player: Player;
   minSentenceChars: number;
-  /** Utterances with fewer words than this are dropped. */
-  minWords?: number;
   /** Optional timeline hook: called with an event name and the sentence index where relevant. */
   trace?: (event: TraceEvent, detail?: string) => void;
 }
@@ -29,7 +28,7 @@ export class Orchestrator {
     const deps = this.deps;
     const heard = (await stt.transcribe(utt.pcm, 16000)).trim();
     deps.trace?.('heard', heard);
-    if (heard.split(/\s+/).filter(Boolean).length < (this.deps.minWords ?? 1)) return null;
+    if (isJunkTranscript(heard)) return null;
 
     const splitter = new SentenceSplitter(this.deps.minSentenceChars);
     const sentences: string[] = [];

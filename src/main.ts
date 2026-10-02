@@ -77,6 +77,7 @@ client.on(Events.InteractionCreate, async (i) => {
         player: new PlaybackQueue(sink),
         capture: tuning,
         minSentenceChars: tuning.ttsSentenceMinChars,
+        botTurnGapMs: tuning.botTurnGapMs,
         resolveSpeaker: (id) => {
           const m = guild.members.cache.get(id);
           return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
