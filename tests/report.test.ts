@@ -30,3 +30,17 @@ describe('report', () => {
     expect(Buffer.byteLength(html)).toBeLessThan(MAX_REPORT_BYTES);
   });
 });
+
+describe('timeline', () => {
+  it('renders simulated events with escaped details', () => {
+    const html = renderReport(
+      { build: 2, date: 'd', whatsNew: [], whatToTry: [], decisionsWaiting: [] },
+      [],
+      { heard: 'hi <b>', sentences: [], firstWordMs: 1380, budgetMs: 2000, events: [{ tMs: 451, event: 'heard', detail: 'x<y' }, { tMs: 1380, event: 'audio-queued' }] },
+    );
+    expect(html).toContain('first word at 1380 ms');
+    expect(html).toContain('x&lt;y');
+    expect(html).not.toContain('<b>');
+    expect(html).toContain('Playing');
+  });
+});
