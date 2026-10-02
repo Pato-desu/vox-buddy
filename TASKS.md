@@ -91,7 +91,7 @@
   - **Done:** Test: simulated disconnects and DAVE failures rejoin with backoff; no crash.
 - [x] **M4.2 Error speech and degraded modes** · 1.5h
   - **Done:** Test: Gemini 429/5xx/safety and sidecar-down produce one in-persona apology each, then recovery; no loops.
-- [ ] **M4.3 Auto-leave when alone** · 1h
+- [x] **M4.3 Auto-leave when alone** · 1h
   - **Done:** Test: leaves after 5 min with no humans; resources freed.
 - [ ] **M4.4 Start scripts** · 1.5h
   - **Done:** Test: `start.ps1` creates the sidecar venv, installs requirements, starts both processes, and stops both cleanly (shell syntax checked in CI; real run is an Owner check).

@@ -5,6 +5,7 @@ import { ConversationMemory } from './brain/memory.js';
 import { GeminiLlm } from './brain/llm.js';
 import { commandDefs } from './commands.js';
 import { loadEnv, redact, tuning } from './config.js';
+import { AloneWatcher } from './voice/alone.js';
 import { PersonaStore } from './persona.js';
 import { SettingsStore } from './settings.js';
 import { LatencyRecorder } from './pipeline/metrics.js';
@@ -56,8 +57,33 @@ interface Active {
   managed: ManagedConnection;
   sink: DiscordSink;
   channelId: string;
+  alone: AloneWatcher;
 }
 const active = new Map<string, Active>();
+
+/** Leaves a guild's call and frees everything tied to it (timers, playback, reconnect logic). */
+function teardown(guildId: string): boolean {
+  const a = active.get(guildId);
+  if (!a) return false;
+  active.delete(guildId);
+  a.alone.stop();
+  a.session.setHushed(true); // cuts any reply in progress
+  a.managed.leave();
+  return true;
+}
+
+/** Humans (not bots) currently in the bot's channel. */
+function humansIn(guildId: string, channelId: string): number {
+  const ch = client.guilds.cache.get(guildId)?.channels.cache.get(channelId);
+  return ch && 'members' in ch ? [...ch.members.values()].filter((m) => !m.user.bot).length : 0;
+}
+
+client.on(Events.VoiceStateUpdate, (oldS, newS) => {
+  for (const id of new Set([oldS.channelId, newS.channelId])) {
+    const a = [...active.entries()].find(([, v]) => v.channelId === id);
+    if (a && id) a[1].alone.humansPresent(humansIn(a[0], id));
+  }
+});
 
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
@@ -72,7 +98,7 @@ client.on(Events.InteractionCreate, async (i) => {
     if (i.commandName === 'join') {
       const channel = guild.members.cache.get(i.user.id)?.voice.channel ?? (await guild.members.fetch(i.user.id)).voice.channel;
       if (!channel) return void (await i.reply({ content: 'Join a voice channel first.', ephemeral: true }));
-      active.get(guild.id)?.managed.leave();
+      teardown(guild.id);
       const sink = new DiscordSink();
       const receiver = new SwitchableReceiver();
       const { getVoiceConnection } = await import('@discordjs/voice');
@@ -88,7 +114,7 @@ client.on(Events.InteractionCreate, async (i) => {
           },
           onGiveUp: () => {
             console.error('voice: could not reconnect; use /join again');
-            active.delete(guild.id);
+            teardown(guild.id);
           },
         },
       );
@@ -115,7 +141,9 @@ client.on(Events.InteractionCreate, async (i) => {
         },
         log: (m) => console.log(m),
       });
-      active.set(guild.id, { managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
+      const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (console.log('alone for too long, leaving'), teardown(guild.id)) });
+      active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
+      alone.humansPresent(humansIn(guild.id, channel.id));
       await i.reply(`Joined ${channel.name}. Just talk.`);
     } else if (i.commandName === 'persona') {
       persona.reload();
@@ -153,10 +181,8 @@ client.on(Events.InteractionCreate, async (i) => {
         formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
       );
     } else if (i.commandName === 'leave') {
-      const a = active.get(guild.id);
-      a?.managed.leave();
-      active.delete(guild.id);
-      await i.reply({ content: a ? 'Bye!' : "I'm not in a voice channel.", ephemeral: !a });
+      const left = teardown(guild.id);
+      await i.reply({ content: left ? 'Bye!' : "I'm not in a voice channel.", ephemeral: !left });
     }
   } catch (e) {
     console.error('command failed:', (e as Error).message);
