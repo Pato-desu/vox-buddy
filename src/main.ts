@@ -75,7 +75,7 @@ function teardown(guildId: string): boolean {
 /** Humans (not bots) currently in the bot's channel. */
 function humansIn(guildId: string, channelId: string): number {
   const ch = client.guilds.cache.get(guildId)?.channels.cache.get(channelId);
-  return ch && 'members' in ch ? [...ch.members.values()].filter((m) => !m.user.bot).length : 0;
+  return ch?.isVoiceBased() ? ch.members.filter((m) => !m.user.bot).size : 0;
 }
 
 client.on(Events.VoiceStateUpdate, (oldS, newS) => {
