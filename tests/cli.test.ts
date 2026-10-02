@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { commandDefs } from '../src/commands.js';
 
 describe('commands', () => {
-  it('registers /join and /leave', () => {
-    expect(commandDefs.map((c) => c.name)).toEqual(['join', 'leave']);
+  it('registers the slash commands', () => {
+    expect(commandDefs.map((c) => c.name)).toEqual(['join', 'leave', 'persona']);
   });
 });
 

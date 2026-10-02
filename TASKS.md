@@ -51,7 +51,7 @@
 **Checkpoint M1:** the report shows a simulated hear → think → speak timeline; locally the owner can `/join` and talk to the bot after following SETUP.md.
 
 ## M2 — Conversation feel
-- [ ] **M2.1 Persona + settings** · 1.5h
+- [x] **M2.1 Persona + settings** · 1.5h
   - **Done:** Test: `persona.md` default loaded as the system prompt, `/persona reload`; `settings.json` read/write with defaults; tests.
 - [ ] **M2.2 Conversation memory + speaker names** · 1.5h
   - **Done:** Test: per-channel history bounded to N turns; messages tagged with display names; cleared on leave.

@@ -4,7 +4,8 @@ import { createGenAiTransport } from './brain/gemini.js';
 import { GeminiLlm } from './brain/llm.js';
 import { commandDefs } from './commands.js';
 import { loadEnv, redact, tuning } from './config.js';
-import { defaultPersona } from './persona.js';
+import { PersonaStore } from './persona.js';
+import { SettingsStore } from './settings.js';
 import { startSession } from './session.js';
 import { SidecarClient } from './speech/client.js';
 import { ManagedConnection, createDiscordJoiner } from './voice/connection.js';
@@ -22,11 +23,13 @@ console.log(`starting: token ${redact(env.discordToken)}, guild ${env.guildId}`)
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 const sidecar = new SidecarClient({ baseUrl: process.env.SIDECAR_URL ?? 'http://127.0.0.1:8765' });
+const persona = new PersonaStore('persona.md', tuning.botName);
+export const settings = new SettingsStore('settings.json');
 const llm = new GeminiLlm({
   transport: createGenAiTransport(env.googleApiKey),
   model: tuning.geminiModel,
   temperature: tuning.geminiTemperature,
-  persona: () => defaultPersona(tuning.botName),
+  persona: () => persona.get(),
   blockedLine: "Ha, I'm going to skip that one.",
   errorLine: 'Sorry, my brain glitched. Say that again?',
 });
@@ -40,7 +43,7 @@ const active = new Map<string, Active>();
 
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
-  console.log(`ready as ${c.user.tag}; /join and /leave registered`);
+  console.log(`ready as ${c.user.tag}; /join, /leave, /persona registered`);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
@@ -77,6 +80,9 @@ client.on(Events.InteractionCreate, async (i) => {
       });
       active.set(guild.id, { managed, sink, channelId: channel.id });
       await i.reply(`Joined ${channel.name}. Just talk.`);
+    } else if (i.commandName === 'persona') {
+      persona.reload();
+      await i.reply({ content: 'Persona reloaded.', ephemeral: true });
     } else if (i.commandName === 'leave') {
       const a = active.get(guild.id);
       a?.managed.leave();
