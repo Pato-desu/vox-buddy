@@ -15,6 +15,6 @@ Status: M0 done, M1 in progress (6/42 tasks) · Build 1 · Last run 2026-10-02 0
 - M0: self-review of desktop and phone screenshots; page readable, no overflow, no console errors. Nothing must-fix.
 ## Feedback log
 feedback-sha: none
-Last notified: never
+Last notified: 2026-10-02
 ## Next run
 M1 First talk, starting at M1.1.
