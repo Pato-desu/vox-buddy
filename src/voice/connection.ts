@@ -22,6 +22,12 @@ export interface ManagedOptions {
   /** How long a dropped connection may heal itself before we rejoin. */
   recoverMs?: number;
   maxRejoins?: number;
+  /** A connection that isn't ready by then (e.g. stuck in the DAVE handshake) is replaced. Default 20 s. */
+  readyTimeoutMs?: number;
+  /** Called for the first connection and every replacement, so callers can rebind receivers and players. */
+  onConnection?: (conn: ConnectionLike) => void;
+  /** Called once when rejoining is abandoned. */
+  onGiveUp?: () => void;
   backoffMs?: (attempt: number) => number;
   sleep?: (ms: number) => Promise<void>;
   log?: (msg: string) => void;
@@ -35,6 +41,7 @@ export class ManagedConnection {
   private closed = false;
   private recovering = false;
   private recoverTimer: ReturnType<typeof setTimeout> | undefined;
+  private readyTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(private readonly target: JoinTarget, private readonly o: ManagedOptions) {
@@ -53,6 +60,7 @@ export class ManagedConnection {
   leave(): void {
     this.closed = true;
     clearTimeout(this.recoverTimer);
+    clearTimeout(this.readyTimer);
     this.detach();
     this.conn?.destroy();
     this.conn = undefined;
@@ -61,6 +69,14 @@ export class ManagedConnection {
   private attach(conn: ConnectionLike): void {
     this.conn = conn;
     this.unsub = conn.onStatus((s) => this.onStatus(s));
+    clearTimeout(this.readyTimer);
+    if (conn.status !== 'ready') {
+      this.readyTimer = setTimeout(() => {
+        this.o.log?.('voice: not ready in time (DAVE handshake stuck?), rejoining');
+        void this.rejoin();
+      }, this.o.readyTimeoutMs ?? 20_000);
+    }
+    this.o.onConnection?.(conn);
   }
 
   private detach(): void {
@@ -73,6 +89,7 @@ export class ManagedConnection {
     if (status === 'ready') {
       this.rejoins = 0;
       clearTimeout(this.recoverTimer);
+      clearTimeout(this.readyTimer);
       return;
     }
     if (status === 'disconnected') {
@@ -107,7 +124,10 @@ export class ManagedConnection {
           this.o.log?.(`voice: rejoin failed: ${(e as Error).message}`);
         }
       }
-      if (!this.closed) this.o.log?.('voice: giving up after repeated rejoin failures');
+      if (!this.closed) {
+        this.o.log?.('voice: giving up after repeated rejoin failures');
+        this.o.onGiveUp?.();
+      }
     } finally {
       this.recovering = false;
     }

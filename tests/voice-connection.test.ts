@@ -106,3 +106,54 @@ describe('ManagedConnection', () => {
     expect(conns).toHaveLength(1);
   });
 });
+
+describe('ManagedConnection recovery', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('replaces a connection stuck before ready (DAVE handshake) and reports each connection', async () => {
+    const conns: FakeConn[] = [];
+    const seen: ConnectionLike[] = [];
+    const m = new ManagedConnection(
+      { guildId: 'g', channelId: 'c' },
+      { join: () => (conns.push(new FakeConn()), conns.at(-1)!), sleep: async () => {}, readyTimeoutMs: 10_000, onConnection: (c) => seen.push(c) },
+    );
+    m.start();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(conns).toHaveLength(2);
+    expect(conns[0]!.destroyed).toBe(true);
+    expect(seen).toEqual(conns);
+    conns[1]!.emit('ready'); // the replacement comes up: no more rejoins
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(conns).toHaveLength(2);
+  });
+
+  it('calls onGiveUp once when rejoining is abandoned', async () => {
+    let gaveUp = 0;
+    let n = 0;
+    const first = new FakeConn();
+    const m = new ManagedConnection(
+      { guildId: 'g', channelId: 'c' },
+      { join: () => { if (n++ === 0) return first; throw new Error('no'); }, sleep: async () => {}, maxRejoins: 2, onGiveUp: () => gaveUp++ },
+    );
+    m.start();
+    first.emit('destroyed');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(gaveUp).toBe(1);
+  });
+
+  it('keeps going through repeated disconnects without crashing', async () => {
+    const conns: FakeConn[] = [];
+    const m = new ManagedConnection(
+      { guildId: 'g', channelId: 'c' },
+      { join: () => (conns.push(new FakeConn()), conns.at(-1)!), sleep: async () => {}, recoverMs: 100 },
+    );
+    m.start();
+    for (let i = 0; i < 4; i++) {
+      conns.at(-1)!.emit('ready');
+      conns.at(-1)!.emit('disconnected');
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(conns).toHaveLength(5);
+  });
+});

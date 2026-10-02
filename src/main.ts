@@ -16,7 +16,7 @@ import { VoiceTts } from './speech/voice.js';
 import { ManagedConnection, createDiscordJoiner } from './voice/connection.js';
 import { DiscordSink } from './voice/discord-sink.js';
 import { PlaybackQueue } from './voice/playback.js';
-import { adaptReceiver } from './voice/receive.js';
+import { SwitchableReceiver, adaptReceiver } from './voice/receive.js';
 
 try {
   process.loadEnvFile('.env');
@@ -68,23 +68,33 @@ client.on(Events.InteractionCreate, async (i) => {
       const channel = guild.members.cache.get(i.user.id)?.voice.channel ?? (await guild.members.fetch(i.user.id)).voice.channel;
       if (!channel) return void (await i.reply({ content: 'Join a voice channel first.', ephemeral: true }));
       active.get(guild.id)?.managed.leave();
+      const sink = new DiscordSink();
+      const receiver = new SwitchableReceiver();
+      const { getVoiceConnection } = await import('@discordjs/voice');
       const managed = new ManagedConnection(
         { guildId: guild.id, channelId: channel.id },
-        { join: createDiscordJoiner({ adapterFor: () => guild.voiceAdapterCreator }), log: (m) => console.log(m) },
+        {
+          join: createDiscordJoiner({ adapterFor: () => guild.voiceAdapterCreator }),
+          log: (m) => console.log(m),
+          // After every (re)join, point the session at the new receiver and re-subscribe the player.
+          onConnection: (conn) => {
+            receiver.set(adaptReceiver((conn as unknown as { receiver: Parameters<typeof adaptReceiver>[0] }).receiver));
+            getVoiceConnection(guild.id)?.subscribe(sink.player);
+          },
+          onGiveUp: () => {
+            console.error('voice: could not reconnect; use /join again');
+            active.delete(guild.id);
+          },
+        },
       );
-      const conn = managed.start();
-      const sink = new DiscordSink();
-      const raw = (conn as unknown as { receiver: Parameters<typeof adaptReceiver>[0] }).receiver;
-      // Subscribe the player to the connection through the library's own connection object.
-      const { getVoiceConnection } = await import('@discordjs/voice');
-      getVoiceConnection(guild.id)?.subscribe(sink.player);
+      managed.start();
       const memory = new ConversationMemory(tuning.historyTurns);
       const latency = new LatencyRecorder();
       const session = startSession({
         memory,
         latency,
         replyWordHardCap: tuning.replyWordHardCap,
-        receiver: adaptReceiver(raw),
+        receiver,
         stt: sidecar,
         tts,
         llm: makeLlm(memory),

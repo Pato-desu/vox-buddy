@@ -59,3 +59,27 @@ export function attachReceive(receiver: ReceiverLike, o: ReceiveOptions): void {
     });
   });
 }
+
+/**
+ * A receiver that survives reconnects: the session keeps this object while `set()` points it at each new
+ * connection's receiver and re-registers the speaking listener there.
+ */
+export class SwitchableReceiver implements ReceiverLike {
+  private current: ReceiverLike | undefined;
+  private listener: ((userId: string) => void) | undefined;
+
+  set(next: ReceiverLike): void {
+    this.current = next;
+    if (this.listener) next.onSpeakingStart(this.listener);
+  }
+
+  onSpeakingStart(listener: (userId: string) => void): void {
+    this.listener = listener;
+    this.current?.onSpeakingStart(listener);
+  }
+
+  subscribePcm(userId: string): Readable {
+    if (!this.current) throw new Error('voice receiver not connected');
+    return this.current.subscribePcm(userId);
+  }
+}

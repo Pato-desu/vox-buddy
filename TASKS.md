@@ -87,7 +87,7 @@
 **Checkpoint M3:** the owner can switch voices with `/voice` and hear their own cloned sample.
 
 ## M4 — Robustness
-- [ ] **M4.1 Voice reconnect and DAVE recovery** · 2h
+- [x] **M4.1 Voice reconnect and DAVE recovery** · 2h
   - **Done:** Test: simulated disconnects and DAVE failures rejoin with backoff; no crash.
 - [ ] **M4.2 Error speech and degraded modes** · 1.5h
   - **Done:** Test: Gemini 429/5xx/safety and sidecar-down produce one in-persona apology each, then recovery; no loops.

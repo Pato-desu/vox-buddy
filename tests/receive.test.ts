@@ -45,3 +45,25 @@ describe('attachReceive', () => {
     expect(out[0]!.pcm.length).toBe(16000);
   });
 });
+
+describe('SwitchableReceiver', () => {
+  it('re-registers the listener and routes audio to the newest receiver', async () => {
+    const { SwitchableReceiver } = await import('../src/voice/receive.js');
+    const { PassThrough } = await import('node:stream');
+    const mk = () => {
+      let l: (id: string) => void = () => {};
+      return { onSpeakingStart: (x: (id: string) => void) => (l = x), subscribePcm: () => new PassThrough(), fire: (id: string) => l(id) };
+    };
+    const a = mk();
+    const b = mk();
+    const sw = new SwitchableReceiver();
+    const heard: string[] = [];
+    sw.onSpeakingStart((id) => heard.push(id));
+    sw.set(a);
+    a.fire('x');
+    sw.set(b); // reconnect
+    b.fire('y');
+    expect(heard).toEqual(['x', 'y']);
+    expect(() => new SwitchableReceiver().subscribePcm('x')).toThrow('not connected');
+  });
+});
