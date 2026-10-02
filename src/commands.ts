@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 export const commandDefs = [
   new SlashCommandBuilder().setName('join').setDescription('Join your voice channel and start listening'),
@@ -7,7 +7,10 @@ export const commandDefs = [
     .setName('persona')
     .setDescription('Reload how the bot talks from persona.md')
     .addSubcommand((s) => s.setName('reload').setDescription('Re-read persona.md')),
-  new SlashCommandBuilder().setName('hush').setDescription('Stop answering (keeps listening). Run again to resume'),
+  new SlashCommandBuilder()
+    .setName('hush')
+    .setDescription('Stop answering (keeps listening). `/hush off` resumes')
+    .addStringOption((o) => o.setName('state').setDescription('on, off, or leave empty to toggle').addChoices({ name: 'on', value: 'on' }, { name: 'off', value: 'off' })),
   new SlashCommandBuilder().setName('status').setDescription('Show channel, voice, speech sidecar health and latency'),
   new SlashCommandBuilder()
     .setName('voice')
@@ -23,8 +26,15 @@ export const commandDefs = [
   new SlashCommandBuilder()
     .setName('mirror')
     .setDescription('Post what the bot hears and says to this text channel (off by default)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .addSubcommand((s) => s.setName('on').setDescription('Mirror into this channel'))
     .addSubcommand((s) => s.setName('off').setDescription('Stop mirroring')),
+  new SlashCommandBuilder()
+    .setName('autojoin')
+    .setDescription('Join a voice channel automatically when the bot starts')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
+    .addSubcommand((s) => s.setName('here').setDescription('Use the voice channel you are in'))
+    .addSubcommand((s) => s.setName('off').setDescription('Do not auto-join')),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice' | 'voices' | 'mirror';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice' | 'voices' | 'mirror' | 'autojoin';

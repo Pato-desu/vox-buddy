@@ -59,12 +59,15 @@ export function startSession(d: SessionDeps): SessionHandle {
   let interrupted = false;
   let hushed = false;
   let heardThisTurn = false;
+  let askedAt = -Infinity; // when the bot last ended a reply with a question
+  const ASK_WINDOW_MS = 30_000;
   let lastHearingApology = -Infinity;
   const orchTrace = (ev: string): void => {
     if (ev === 'heard') heardThisTurn = true;
     if (ev === 'llm-first-delta') replying = true;
   };
-  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: (ev, detail) => {
+  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, expectingAnswer: () => now() - askedAt < ASK_WINDOW_MS,
+    trace: (ev, detail) => {
       orchTrace(ev);
       d.latency?.trace(ev);
       if (ev === 'heard') d.debug?.(`heard: ${detail ?? ''}`);
@@ -85,6 +88,7 @@ export function startSession(d: SessionDeps): SessionHandle {
         try {
           r = await orch.handle(u, ctl.signal);
         } catch (e) {
+          if (ctl.signal.aborted) return; // cut off by barge-in or /hush: expected, not a failure
           // Hearing failed (sidecar down?): say so once in a while if the voice still works, otherwise just log.
           if (!heardThisTurn && d.hearingErrorLine && !ctl.signal.aborted && now() - lastHearingApology >= HEARING_APOLOGY_COOLDOWN_MS) {
             lastHearingApology = now();
@@ -100,7 +104,9 @@ export function startSession(d: SessionDeps): SessionHandle {
           if (current === ctl) current = null;
         }
         if (r && !ctl.signal.aborted) {
+          await d.player.whenIdle?.(); // the gap runs from the end of the spoken reply, not from when it was queued
           lastReplyEnd = now();
+          askedAt = r.sentences.at(-1)?.trimEnd().endsWith('?') ? lastReplyEnd : -Infinity;
           d.latency?.finish();
         }
         if (r && !ctl.signal.aborted) d.onTurn?.(u.userName, r.heard, r.sentences.join(' '));

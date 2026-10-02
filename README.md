@@ -13,12 +13,13 @@ Follow SETUP.md (Windows, from zero), then `.\start.ps1` starts the speech sidec
 |---|---|
 | `/join` | Join your voice channel and start listening |
 | `/leave` | Leave the channel (also automatic after 5 min alone) |
-| `/hush` | Stop answering but keep listening; run again to resume |
+| `/hush [on\|off]` | Stop answering but keep listening; `/hush off` resumes (no argument toggles) |
 | `/status` | Channel, voice in use, sidecar health, GPU memory, latency |
 | `/voice fast\|clone` | Quick offline Piper voice, or your cloned voice |
 | `/voices list\|use <name>` | Show or pick a clone sample from `voices/` |
 | `/persona reload` | Re-read `persona.md` (how the bot talks) |
-| `/mirror on\|off` | Post what it heard and said to a text channel (off by default) |
+| `/mirror on\|off` | Post what it heard and said to this text channel (off by default; needs Manage Channels; resets on restart) |
+| `/autojoin here\|off` | Join your current voice channel automatically at start (needs Manage Channels) |
 
 ## Files you can edit
 - `persona.md`: the bot's personality (system prompt).

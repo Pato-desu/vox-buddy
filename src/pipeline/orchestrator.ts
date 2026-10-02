@@ -9,6 +9,8 @@ export interface OrchestratorDeps {
   tts: Tts;
   player: Player;
   minSentenceChars: number;
+  /** True right after the bot asked a question, so a one-word answer is accepted. */
+  expectingAnswer?: () => boolean;
   /** Hard cap on reply length in words (default: none). */
   replyWordHardCap?: number;
   /** Optional timeline hook: called with an event name and the sentence index where relevant. */
@@ -31,7 +33,7 @@ export class Orchestrator {
     const deps = this.deps;
     const heard = (await stt.transcribe(utt.pcm, 16000)).trim();
     deps.trace?.('heard', heard);
-    if (isJunkTranscript(heard)) return null;
+    if (isJunkTranscript(heard, { expectingAnswer: deps.expectingAnswer?.() })) return null;
 
     const splitter = new SentenceSplitter(this.deps.minSentenceChars);
     const sentences: string[] = [];

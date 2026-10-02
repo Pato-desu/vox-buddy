@@ -41,7 +41,7 @@ describe('SettingsStore', () => {
     const m = mem();
     new SettingsStore('s.json', m.io).update({ voice: 'clone', cloneSample: 'me' });
     const again = new SettingsStore('s.json', m.io).get();
-    expect(again).toEqual({ voice: 'clone', cloneSample: 'me', autoJoinChannelId: null, mirrorChannelId: null });
+    expect(again).toEqual({ voice: 'clone', cloneSample: 'me', autoJoinChannelId: null, mirrorChannelId: null, hushed: false });
   });
   it('drops unknown keys and bad types', () => {
     expect(normalizeSettings({ voice: 'robot', cloneSample: 5, extra: 1 })).toEqual(defaultSettings);

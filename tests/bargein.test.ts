@@ -73,7 +73,10 @@ describe('barge-in', () => {
     r.speak('b');
     await tick(200);
     expect(r.replies).toEqual(['a', 'b']); // b's utterance handled next
-    r.m.finishCurrent();
+    for (let i = 0; i < 10; i++) {
+      r.m.finishCurrent(); // let b's reply play out chunk by chunk
+      await tick(5);
+    }
     await r.s.whenIdle();
   });
   it('sentence: the playing sentence finishes but nothing else is queued', async () => {

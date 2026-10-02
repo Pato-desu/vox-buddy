@@ -110,7 +110,7 @@
   - **Done:** Test: repo grep finds no tokens/keys; `.env` ignored; logs redacted.
 - [x] **M5.4 Docs and README polish** · 1.5h
   - **Done:** Test: README, SETUP.md and CLAUDE.md match the real commands and config.
-- [ ] **M5.5 Final QA pass** · 1h
+- [x] **M5.5 Final QA pass** · 1h
   - **Done:** Test: `npm run check` and smoke pass; milestone review done; status set to Release candidate.
 **Checkpoint M5:** release candidate; the owner runs the real bot and sends feedback.
 

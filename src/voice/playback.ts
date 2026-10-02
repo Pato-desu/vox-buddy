@@ -32,6 +32,11 @@ export class PlaybackQueue extends EventEmitter<PlaybackEvents> implements Playe
     return this.queue.length;
   }
 
+  whenIdle(): Promise<void> {
+    if (!this.running && this.queue.length === 0) return Promise.resolve();
+    return new Promise((resolve) => this.once('idle', () => resolve()));
+  }
+
   enqueue(chunk: AudioChunk): void {
     this.queue.push(chunk);
     if (!this.running) void this.drain();

@@ -99,3 +99,16 @@ describe('toDiscordPcm', () => {
     expect(out[2]).toBeLessThan(3000);
   });
 });
+
+describe('PlaybackQueue.whenIdle', () => {
+  it('resolves immediately when idle and after the last chunk otherwise', async () => {
+    const q = new PlaybackQueue({ play: () => new Promise((r) => setTimeout(r, 10)), stop() {} });
+    await q.whenIdle();
+    q.enqueue({ pcm: new Int16Array(1), sampleRate: 16000 });
+    q.enqueue({ pcm: new Int16Array(1), sampleRate: 16000 });
+    expect(q.playing).toBe(true);
+    await q.whenIdle();
+    expect(q.playing).toBe(false);
+    expect(q.pending).toBe(0);
+  });
+});

@@ -1,5 +1,6 @@
 // Bot entry point: `npm start`. Needs .env (see SETUP.md) and the speech sidecar running.
-import { Client, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { getVoiceConnection } from '@discordjs/voice';
+import { Client, Events, GatewayIntentBits, REST, Routes, type Guild, type VoiceBasedChannel } from 'discord.js';
 import { createGenAiTransport } from './brain/gemini.js';
 import { ConversationMemory } from './brain/memory.js';
 import { GeminiLlm } from './brain/llm.js';
@@ -99,8 +100,70 @@ client.on(Events.VoiceStateUpdate, (oldS, newS) => {
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
   await refreshClone();
+  settings.update({ mirrorChannelId: null }); // transcript mirroring is opt-in per run, never silently resumed after a restart
+  const autoId = settings.get().autoJoinChannelId;
+  if (autoId) {
+    try {
+      const ch = await c.channels.fetch(autoId);
+      if (ch?.isVoiceBased() && ch.guildId === env.guildId) joinVoice(ch.guild, ch);
+    } catch (e) {
+      logger.warn(`auto-join failed: ${(e as Error).message}`);
+    }
+  }
   logger.info(`ready as ${c.user.tag}; slash commands registered`);
 });
+
+/** Joins synchronously (no awaits), so two quick /join or /leave commands can't interleave and leak a session. */
+function joinVoice(guild: Guild, channel: VoiceBasedChannel): void {
+  teardown(guild.id);
+  const sink = new DiscordSink();
+  const receiver = new SwitchableReceiver();
+  const managed = new ManagedConnection(
+    { guildId: guild.id, channelId: channel.id },
+    {
+      join: createDiscordJoiner({ adapterFor: () => guild.voiceAdapterCreator }),
+      log: (m) => logger.info(m),
+      // After every (re)join, point the session at the new receiver and re-subscribe the player.
+      onConnection: (conn) => {
+        receiver.set(adaptReceiver((conn as unknown as { receiver: Parameters<typeof adaptReceiver>[0] }).receiver));
+        getVoiceConnection(guild.id)?.subscribe(sink.player);
+      },
+      onGiveUp: () => {
+        logger.error('voice: could not reconnect; use /join again');
+        teardown(guild.id);
+      },
+    },
+  );
+  managed.start();
+  const memory = new ConversationMemory(tuning.historyTurns);
+  const latency = new LatencyRecorder();
+  const session = startSession({
+    memory,
+    latency,
+    replyWordHardCap: tuning.replyWordHardCap,
+    receiver,
+    stt: sidecar,
+    tts,
+    llm: makeLlm(memory),
+    player: new PlaybackQueue(sink),
+    capture: tuning,
+    minSentenceChars: tuning.ttsSentenceMinChars,
+    botTurnGapMs: tuning.botTurnGapMs,
+    hearingErrorLine: "Sorry, I can't hear properly right now.",
+    bargeIn: tuning.bargeInMode,
+    resolveSpeaker: (id) => {
+      const m = guild.members.cache.get(id);
+      return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
+    },
+    log: (m) => logger.info(m),
+    debug: (m) => logger.debug(m),
+    onTurn: (who, heard, said) => settings.get().mirrorChannelId && mirror.turn(who, heard, said),
+  });
+  const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (logger.info('alone for too long, leaving'), teardown(guild.id)) });
+  active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
+  alone.humansPresent(humansIn(guild.id, channel.id));
+  session.setHushed(settings.get().hushed);
+}
 
 client.on(Events.InteractionCreate, async (i) => {
   if (!i.isChatInputCommand() || !i.guild) return;
@@ -109,54 +172,7 @@ client.on(Events.InteractionCreate, async (i) => {
     if (i.commandName === 'join') {
       const channel = guild.members.cache.get(i.user.id)?.voice.channel ?? (await guild.members.fetch(i.user.id)).voice.channel;
       if (!channel) return void (await i.reply({ content: 'Join a voice channel first.', ephemeral: true }));
-      teardown(guild.id);
-      const sink = new DiscordSink();
-      const receiver = new SwitchableReceiver();
-      const { getVoiceConnection } = await import('@discordjs/voice');
-      const managed = new ManagedConnection(
-        { guildId: guild.id, channelId: channel.id },
-        {
-          join: createDiscordJoiner({ adapterFor: () => guild.voiceAdapterCreator }),
-          log: (m) => logger.info(m),
-          // After every (re)join, point the session at the new receiver and re-subscribe the player.
-          onConnection: (conn) => {
-            receiver.set(adaptReceiver((conn as unknown as { receiver: Parameters<typeof adaptReceiver>[0] }).receiver));
-            getVoiceConnection(guild.id)?.subscribe(sink.player);
-          },
-          onGiveUp: () => {
-            logger.error('voice: could not reconnect; use /join again');
-            teardown(guild.id);
-          },
-        },
-      );
-      managed.start();
-      const memory = new ConversationMemory(tuning.historyTurns);
-      const latency = new LatencyRecorder();
-      const session = startSession({
-        memory,
-        latency,
-        replyWordHardCap: tuning.replyWordHardCap,
-        receiver,
-        stt: sidecar,
-        tts,
-        llm: makeLlm(memory),
-        player: new PlaybackQueue(sink),
-        capture: tuning,
-        minSentenceChars: tuning.ttsSentenceMinChars,
-        botTurnGapMs: tuning.botTurnGapMs,
-        hearingErrorLine: "Sorry, I can't hear properly right now.",
-        bargeIn: tuning.bargeInMode,
-        resolveSpeaker: (id) => {
-          const m = guild.members.cache.get(id);
-          return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
-        },
-        log: (m) => logger.info(m),
-        debug: (m) => logger.debug(m),
-        onTurn: (who, heard, said) => settings.get().mirrorChannelId && mirror.turn(who, heard, said),
-      });
-      const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (logger.info('alone for too long, leaving'), teardown(guild.id)) });
-      active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
-      alone.humansPresent(humansIn(guild.id, channel.id));
+      joinVoice(guild, channel);
       await i.reply(`Joined ${channel.name}. Just talk.`);
     } else if (i.commandName === 'persona') {
       persona.reload();
@@ -189,11 +205,23 @@ client.on(Events.InteractionCreate, async (i) => {
         settings.update({ mirrorChannelId: null });
         await i.reply({ content: 'Mirror off.', ephemeral: true });
       }
+    } else if (i.commandName === 'autojoin') {
+      if (i.options.getSubcommand() === 'here') {
+        const ch = guild.members.cache.get(i.user.id)?.voice.channel ?? (await guild.members.fetch(i.user.id)).voice.channel;
+        if (!ch) return void (await i.reply({ content: 'Join a voice channel first.', ephemeral: true }));
+        settings.update({ autoJoinChannelId: ch.id });
+        await i.reply({ content: `I'll join ${ch.name} whenever I start.`, ephemeral: true });
+      } else {
+        settings.update({ autoJoinChannelId: null });
+        await i.reply({ content: 'Auto-join off.', ephemeral: true });
+      }
     } else if (i.commandName === 'hush') {
       const a = active.get(guild.id);
       if (!a) return void (await i.reply({ content: "I'm not in a voice channel.", ephemeral: true }));
-      a.session.setHushed(!a.session.hushed);
-      await i.reply({ content: a.session.hushed ? 'Hushed. I still listen; /hush again to talk.' : "I'm back.", ephemeral: true });
+      const state = i.options.getString('state');
+      a.session.setHushed(state ? state === 'on' : !a.session.hushed);
+      settings.update({ hushed: a.session.hushed });
+      await i.reply({ content: a.session.hushed ? 'Hushed. I still listen; `/hush off` to talk again.' : "I'm back.", ephemeral: true });
     } else if (i.commandName === 'status') {
       const a = active.get(guild.id);
       await i.deferReply({ ephemeral: true });

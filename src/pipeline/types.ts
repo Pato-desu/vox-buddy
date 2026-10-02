@@ -36,6 +36,8 @@ export interface Player {
   stop(): void;
   /** Drops queued chunks but lets the one playing finish (barge-in variant B). */
   dropPending?(): void;
+  /** Resolves when nothing is playing or queued (immediately if already idle). */
+  whenIdle?(): Promise<void>;
   /** True while audio is coming out. */
   readonly playing?: boolean;
 }

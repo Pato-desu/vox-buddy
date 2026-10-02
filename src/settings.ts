@@ -9,11 +9,13 @@ export interface Settings {
   cloneSample: string | null;
   /** Voice channel to join on start, if any (D8). */
   autoJoinChannelId: string | null;
+  /** /hush state, kept across restarts. */
+  hushed: boolean;
   /** Text channel that gets heard/said lines (D10); null = off. */
   mirrorChannelId: string | null;
 }
 
-export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null };
+export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null, hushed: false };
 
 export interface SettingsIo {
   read: (path: string) => string;
@@ -31,6 +33,7 @@ export function normalizeSettings(raw: unknown): Settings {
     cloneSample: str(o.cloneSample),
     autoJoinChannelId: str(o.autoJoinChannelId),
     mirrorChannelId: str(o.mirrorChannelId),
+    hushed: o.hushed === true,
   };
 }
 
