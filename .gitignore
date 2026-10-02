@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+.autodev/screens/
+services/speech/.venv/
+__pycache__/
+settings.json
+voices/*.wav
+models/
