@@ -39,7 +39,10 @@ For GPU speech-to-text, install the CUDA 12 runtime libraries for faster-whisper
 3. In Discord: `/voices list` shows each sample and why one is unusable, `/voices use me` selects it and switches to the clone voice. `/voice fast` switches back.
 4. Switching warms the model up, so the first reply may still be slow. If the GPU is too full the bot says so once and keeps talking with the fast voice; `/status` shows free GPU memory.
 
-## 6. Check, then run
+## 6. One-command start (after step 3, secrets)
+`.\start.ps1` creates the sidecar venv, installs its requirements, downloads the Piper voice, starts the sidecar, waits until it is healthy, then runs the bot. Ctrl+C stops both. `-Fake` uses fake engines (no models) and `-Port` changes the sidecar port. If PowerShell blocks scripts, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once. Steps 4 and 5 below do the same by hand.
+
+## 7. Check, then run
 In a second terminal from the repo root:
 1. `npm run doctor`: every line should say OK.
 2. Optional receive-only test: join a voice channel, run `npm run listen-test`, speak; it prints "heard N seconds from <you>".

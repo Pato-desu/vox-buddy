@@ -93,7 +93,7 @@
   - **Done:** Test: Gemini 429/5xx/safety and sidecar-down produce one in-persona apology each, then recovery; no loops.
 - [x] **M4.3 Auto-leave when alone** · 1h
   - **Done:** Test: leaves after 5 min with no humans; resources freed.
-- [ ] **M4.4 Start scripts** · 1.5h
+- [x] **M4.4 Start scripts** · 1.5h
   - **Done:** Test: `start.ps1` creates the sidecar venv, installs requirements, starts both processes, and stops both cleanly (shell syntax checked in CI; real run is an Owner check).
 - [ ] **M4.5 Logging and privacy** · 1.5h
   - **Done:** Test: secrets are redacted; audio is never written to disk outside simulate/debug; transcripts only at debug level.
