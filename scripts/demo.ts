@@ -1,17 +1,30 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { FakeStt, REALISTIC_DELAYS } from '../src/pipeline/fakes.js';
 import { tuning } from '../src/config.js';
+import { LatencyRecorder } from '../src/pipeline/metrics.js';
 import { simulate } from '../src/simulate.js';
 import { MAX_REPORT_BYTES, parseMilestones, renderReport, type DevInfo } from '../src/report.js';
 
 const info = JSON.parse(readFileSync('.autodev/devinfo.json', 'utf8')) as DevInfo;
 const sim = await simulate({ pcm: new Int16Array(24000) });
+const latency = new LatencyRecorder();
+const talk = [
+  ['Alex', 'hey buddy what are we doing tonight'],
+  ['Sam', 'can you settle a debate about pineapple pizza'],
+  ['Jo', 'ok but be honest with us buddy'],
+] as const;
+const turns: { speaker: string; said: string; reply: string; firstWordMs: number | null }[] = [];
+for (const [speaker, said] of talk) {
+  const r = await simulate({ pcm: new Int16Array(24000), userName: speaker, stt: new FakeStt(said, REALISTIC_DELAYS.sttMs), latency });
+  turns.push({ speaker, said, reply: r.sentences.join(' '), firstWordMs: r.firstWordMs });
+}
 const html = renderReport(info, parseMilestones(readFileSync('TASKS.md', 'utf8')), {
   heard: sim.heard,
   sentences: sim.sentences,
   firstWordMs: sim.firstWordMs,
   budgetMs: tuning.latencyBudgetMs.firstWord,
   events: sim.timeline,
-});
+}, { turns, latency: latency.summary() });
 const bytes = Buffer.byteLength(html);
 if (bytes > MAX_REPORT_BYTES) throw new Error(`demo too large: ${bytes} bytes`);
 mkdirSync('dist', { recursive: true });

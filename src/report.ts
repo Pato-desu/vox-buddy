@@ -1,3 +1,5 @@
+import type { RollingSummary } from './pipeline/metrics.js';
+
 /** Build report page (the demo): a self-contained HTML fragment, no external requests. */
 export interface DevInfo {
   build: number;
@@ -19,6 +21,11 @@ export interface TimelineView {
   firstWordMs: number | null;
   budgetMs: number;
   events: { tMs: number; event: string; detail?: string | undefined }[];
+}
+
+export interface ConversationView {
+  turns: { speaker: string; said: string; reply: string; firstWordMs: number | null }[];
+  latency: RollingSummary;
 }
 
 export const MAX_REPORT_BYTES = 15 * 1024 * 1024;
@@ -72,6 +79,18 @@ function renderTimeline(t: TimelineView): string {
   return `<p class="muted">Simulated with fake engines and realistic delays. You say: "${esc(t.heard)}". ${esc(verdict)}.</p><div class="tlwrap" style="--budget:${budget}%">${rows}</div>`;
 }
 
+function renderConversation(c: ConversationView): string {
+  const turns = c.turns
+    .map((t) => `<div class="turn"><b>${esc(t.speaker)}</b> ${esc(t.said)}<div class="reply">Buddy: ${esc(t.reply)}${t.firstWordMs === null ? '' : ` <span class="muted">(first word ${t.firstWordMs} ms)</span>`}</div></div>`)
+    .join('');
+  const l = c.latency;
+  const stage = (label: string, k: keyof NonNullable<RollingSummary>): string => (l ? `<tr><td>${label}</td><td>${l[k].avg} ms</td><td>${l[k].p50} ms</td><td>${l[k].max} ms</td></tr>` : '');
+  const table = l
+    ? `<table class="lat"><tr><th>Stage</th><th>avg</th><th>median</th><th>worst</th></tr>${stage('Hear (speech to text)', 'sttMs')}${stage('Think (first sentence)', 'firstLlmSentenceMs')}${stage('Voice (first audio)', 'firstTtsAudioMs')}${stage('First word, total', 'firstWordMs')}</table>`
+    : '';
+  return `<p class="muted">Three friends talk in turn; Buddy answers each one, one short reply at a time. Fake engines with realistic delays.</p>${turns}${table}`;
+}
+
 const PIPELINE = ['Discord voice (DAVE)', 'Utterance capture', 'Whisper STT', 'Gemini (streaming)', 'Sentence split', 'Piper / XTTS TTS', 'Playback'];
 
 const CSS = `
@@ -93,12 +112,17 @@ const CSS = `
 .vb .track i{position:absolute;top:-3px;width:14px;height:14px;border-radius:50%;background:var(--acc);transform:translateX(-7px)}
 .vb .tms{text-align:right;color:var(--mute);font-variant-numeric:tabular-nums}
 .vb .tlwrap{position:relative;margin-top:10px}
+.vb .turn{margin:10px 0;font-size:15px}
+.vb .reply{color:var(--acc);margin-left:12px}
+.vb table.lat{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+.vb .lat th,.vb .lat td{text-align:right;padding:4px 6px;border-bottom:1px solid #2a2f3a}
+.vb .lat th:first-child,.vb .lat td:first-child{text-align:left}
 .vb .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .vb .flow span{background:#222736;border-radius:8px;padding:4px 10px;font-size:14px}
 .vb .flow em{color:var(--mute);font-style:normal}
 `;
 
-export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView): string {
+export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView, conversation?: ConversationView): string {
   const done = milestones.reduce((a, m) => a + m.done, 0);
   const total = milestones.reduce((a, m) => a + m.total, 0);
   const ms = milestones
@@ -116,6 +140,7 @@ export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: 
 <section><h2>Decisions waiting</h2>${list(info.decisionsWaiting, 'Nothing is waiting on you.')}</section>
 <section><h2>Plan</h2>${ms}</section>
 ${timeline ? `<section><h2>Hear → think → speak (simulated)</h2>${renderTimeline(timeline)}</section>` : ''}
+${conversation ? `<section><h2>Group chat (simulated)</h2>${renderConversation(conversation)}</section>` : ''}
 <section><h2>Pipeline</h2><div class="flow">${flow}</div><p class="muted" style="margin-top:10px">A friend in the call: hears everyone, answers in one or two short sentences, stops when you talk over it.</p></section>
 </main></div>
 `;

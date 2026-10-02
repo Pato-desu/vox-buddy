@@ -1,5 +1,6 @@
 import { Orchestrator, type TraceEvent } from './pipeline/orchestrator.js';
 import { FakeLlm, FakeStt, FakeTts, REALISTIC_DELAYS, cannedReply, type FakeDelays } from './pipeline/fakes.js';
+import type { LatencyRecorder } from './pipeline/metrics.js';
 import type { AudioChunk, Llm, Player, Stt, Tts } from './pipeline/types.js';
 
 export interface TimelineEntry {
@@ -25,6 +26,7 @@ export interface SimulationOptions {
   llm?: Llm;
   tts?: Tts;
   minSentenceChars?: number;
+  latency?: LatencyRecorder;
 }
 
 /** Runs one utterance through the whole pipeline with fakes (or injected engines) and records a timeline. */
@@ -40,9 +42,14 @@ export async function simulate(o: SimulationOptions): Promise<SimulationResult> 
     tts: o.tts ?? new FakeTts(d.ttsMs),
     player,
     minSentenceChars: o.minSentenceChars ?? 12,
-    trace: (event, detail) => timeline.push({ tMs: Math.round(performance.now() - t0), event, detail }),
+    trace: (event, detail) => {
+      o.latency?.trace(event);
+      timeline.push({ tMs: Math.round(performance.now() - t0), event, detail });
+    },
   });
+  o.latency?.begin();
   const result = await orch.handle({ userId: 'sim', userName: o.userName ?? 'Alex', pcm: o.pcm, startedAt: 0 });
+  if (result) o.latency?.finish();
   const firstQueued = timeline.find((e) => e.event === 'audio-queued');
   return {
     heard: result?.heard ?? '',
