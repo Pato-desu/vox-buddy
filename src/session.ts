@@ -29,6 +29,8 @@ export interface SessionDeps {
   /** Spoken (once per cooldown) when speech-to-text fails but the voice still works. */
   hearingErrorLine?: string;
   log?: (msg: string) => void;
+  /** Transcripts go here only; wire it to a debug-level logger. */
+  debug?: (msg: string) => void;
 }
 
 /**
@@ -60,7 +62,12 @@ export function startSession(d: SessionDeps): SessionHandle {
     if (ev === 'heard') heardThisTurn = true;
     if (ev === 'llm-first-delta') replying = true;
   };
-  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: (ev) => (orchTrace(ev), d.latency?.trace(ev)), replyWordHardCap: d.replyWordHardCap });
+  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: (ev, detail) => {
+      orchTrace(ev);
+      d.latency?.trace(ev);
+      if (ev === 'heard') d.debug?.(`heard: ${detail ?? ''}`);
+      else if (ev === 'sentence') d.debug?.(`said: ${detail ?? ''}`);
+    }, replyWordHardCap: d.replyWordHardCap });
   const onUtterance = (u: Utterance): void => {
     chain = chain
       .then(async () => {

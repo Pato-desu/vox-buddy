@@ -95,7 +95,7 @@
   - **Done:** Test: leaves after 5 min with no humans; resources freed.
 - [x] **M4.4 Start scripts** · 1.5h
   - **Done:** Test: `start.ps1` creates the sidecar venv, installs requirements, starts both processes, and stops both cleanly (shell syntax checked in CI; real run is an Owner check).
-- [ ] **M4.5 Logging and privacy** · 1.5h
+- [x] **M4.5 Logging and privacy** · 1.5h
   - **Done:** Test: secrets are redacted; audio is never written to disk outside simulate/debug; transcripts only at debug level.
 - [ ] **M4.6 Transcript mirror (optional)** · 1.5h ⚠️D10
   - **Done:** Test: when enabled, posts "heard/said" lines to a configured text channel with rate limiting.

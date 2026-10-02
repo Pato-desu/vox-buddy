@@ -4,6 +4,7 @@ import { createGenAiTransport } from './brain/gemini.js';
 import { ConversationMemory } from './brain/memory.js';
 import { GeminiLlm } from './brain/llm.js';
 import { commandDefs } from './commands.js';
+import { createLogger, parseLogLevel } from './log.js';
 import { loadEnv, redact, tuning } from './config.js';
 import { AloneWatcher } from './voice/alone.js';
 import { PersonaStore } from './persona.js';
@@ -25,7 +26,8 @@ try {
   /* fall back to the real environment */
 }
 const env = loadEnv();
-console.log(`starting: token ${redact(env.discordToken)}, guild ${env.guildId}`);
+const logger = createLogger({ level: parseLogLevel(process.env.LOG_LEVEL), secrets: [env.discordToken, env.googleApiKey] });
+logger.info(`starting: token ${redact(env.discordToken)}, guild ${env.guildId}`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 const sidecar = new SidecarClient({ baseUrl: process.env.SIDECAR_URL ?? 'http://127.0.0.1:8765' });
@@ -33,7 +35,7 @@ const persona = new PersonaStore('persona.md', tuning.botName);
 export const settings = new SettingsStore('settings.json');
 let cloneReady = false;
 const refreshClone = async (): Promise<void> => void (cloneReady = Boolean((await sidecar.health()).clone));
-const tts = new VoiceTts({ backend: sidecar, settings: () => settings.get(), cloneReady: () => cloneReady, log: (m) => console.log(m) });
+const tts = new VoiceTts({ backend: sidecar, settings: () => settings.get(), cloneReady: () => cloneReady, log: (m) => logger.info(m) });
 const makeLlm = (memory: ConversationMemory) =>
   new GeminiLlm({
     history: () => memory.history(),
@@ -88,7 +90,7 @@ client.on(Events.VoiceStateUpdate, (oldS, newS) => {
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
   await refreshClone();
-  console.log(`ready as ${c.user.tag}; slash commands registered`);
+  logger.info(`ready as ${c.user.tag}; slash commands registered`);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
@@ -106,14 +108,14 @@ client.on(Events.InteractionCreate, async (i) => {
         { guildId: guild.id, channelId: channel.id },
         {
           join: createDiscordJoiner({ adapterFor: () => guild.voiceAdapterCreator }),
-          log: (m) => console.log(m),
+          log: (m) => logger.info(m),
           // After every (re)join, point the session at the new receiver and re-subscribe the player.
           onConnection: (conn) => {
             receiver.set(adaptReceiver((conn as unknown as { receiver: Parameters<typeof adaptReceiver>[0] }).receiver));
             getVoiceConnection(guild.id)?.subscribe(sink.player);
           },
           onGiveUp: () => {
-            console.error('voice: could not reconnect; use /join again');
+            logger.error('voice: could not reconnect; use /join again');
             teardown(guild.id);
           },
         },
@@ -139,9 +141,10 @@ client.on(Events.InteractionCreate, async (i) => {
           const m = guild.members.cache.get(id);
           return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
         },
-        log: (m) => console.log(m),
+        log: (m) => logger.info(m),
+        debug: (m) => logger.debug(m),
       });
-      const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (console.log('alone for too long, leaving'), teardown(guild.id)) });
+      const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (logger.info('alone for too long, leaving'), teardown(guild.id)) });
       active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
       alone.humansPresent(humansIn(guild.id, channel.id));
       await i.reply(`Joined ${channel.name}. Just talk.`);
@@ -185,10 +188,10 @@ client.on(Events.InteractionCreate, async (i) => {
       await i.reply({ content: left ? 'Bye!' : "I'm not in a voice channel.", ephemeral: !left });
     }
   } catch (e) {
-    console.error('command failed:', (e as Error).message);
+    logger.error(`command failed: ${(e as Error).message}`);
     if (!i.replied) await i.reply({ content: 'Something went wrong. Check the console.', ephemeral: true }).catch(() => {});
   }
 });
 
-process.on('unhandledRejection', (e) => console.error('unhandled rejection:', (e as Error)?.message ?? e));
+process.on('unhandledRejection', (e) => logger.error(`unhandled rejection: ${(e as Error)?.message ?? String(e)}`));
 await client.login(env.discordToken);
