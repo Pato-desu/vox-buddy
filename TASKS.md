@@ -89,7 +89,7 @@
 ## M4 — Robustness
 - [x] **M4.1 Voice reconnect and DAVE recovery** · 2h
   - **Done:** Test: simulated disconnects and DAVE failures rejoin with backoff; no crash.
-- [ ] **M4.2 Error speech and degraded modes** · 1.5h
+- [x] **M4.2 Error speech and degraded modes** · 1.5h
   - **Done:** Test: Gemini 429/5xx/safety and sidecar-down produce one in-persona apology each, then recovery; no loops.
 - [ ] **M4.3 Auto-leave when alone** · 1h
   - **Done:** Test: leaves after 5 min with no humans; resources freed.

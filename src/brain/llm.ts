@@ -10,10 +10,19 @@ export interface GeminiLlmOptions {
   blockedLine: string;
   errorLine: string;
   history?: () => ChatMessage[];
+  /** Per-failure apologies in the persona's voice; `errorLine` covers the rest. */
+  lines?: Partial<Record<'rate_limit' | 'server' | 'auth', string>>;
+  /** The same failure within this window stays silent instead of apologising again. Default 30 s. */
+  apologyCooldownMs?: number;
+  now?: () => number;
 }
+
+export type FailureKind = 'blocked' | 'rate_limit' | 'server' | 'auth' | 'unknown';
 
 /** Gemini behind the Llm interface. Failures turn into one short spoken line, not exceptions. */
 export class GeminiLlm implements Llm {
+  private lastApology = new Map<FailureKind, number>();
+
   constructor(private readonly o: GeminiLlmOptions) {}
 
   async *stream(turn: LlmTurn, signal?: AbortSignal): AsyncIterable<string> {
@@ -26,10 +35,24 @@ export class GeminiLlm implements Llm {
       history,
       signal,
     })) {
-      if (ev.type === 'text') yield ev.text;
-      else if (ev.type === 'blocked') return void (yield this.o.blockedLine);
+      if (ev.type === 'text') {
+        this.lastApology.clear(); // recovered: the next failure gets a fresh apology
+        yield ev.text;
+      } else if (ev.type === 'blocked') return void (yield* this.apologise('blocked', this.o.blockedLine));
       else if (ev.kind === 'aborted') return;
-      else return void (yield this.o.errorLine);
+      else {
+        const kind: FailureKind = ev.kind;
+        return void (yield* this.apologise(kind, (kind !== 'unknown' && this.o.lines?.[kind]) || this.o.errorLine));
+      }
     }
+  }
+
+  /** One apology per failure kind per cooldown: a dead API never turns into a loop of sorries. */
+  private *apologise(kind: FailureKind, line: string): Generator<string> {
+    const now = (this.o.now ?? Date.now)();
+    const last = this.lastApology.get(kind);
+    if (last !== undefined && now - last < (this.o.apologyCooldownMs ?? 30_000)) return;
+    this.lastApology.set(kind, now);
+    yield line;
   }
 }

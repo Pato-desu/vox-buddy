@@ -42,6 +42,11 @@ const makeLlm = (memory: ConversationMemory) =>
     persona: () => persona.get(),
     blockedLine: "Ha, I'm going to skip that one.",
     errorLine: 'Sorry, my brain glitched. Say that again?',
+    lines: {
+      rate_limit: "Whoa, I'm getting too many thoughts at once. Give me a few seconds.",
+      server: 'My brain is having a rough moment. Try me again in a bit.',
+      auth: "I can't reach my brain at all. Someone needs to check my API key.",
+    },
   });
 
 interface Active {
@@ -102,6 +107,7 @@ client.on(Events.InteractionCreate, async (i) => {
         capture: tuning,
         minSentenceChars: tuning.ttsSentenceMinChars,
         botTurnGapMs: tuning.botTurnGapMs,
+        hearingErrorLine: "Sorry, I can't hear properly right now.",
         bargeIn: tuning.bargeInMode,
         resolveSpeaker: (id) => {
           const m = guild.members.cache.get(id);

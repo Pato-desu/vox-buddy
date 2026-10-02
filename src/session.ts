@@ -26,6 +26,8 @@ export interface SessionDeps {
   latency?: LatencyRecorder;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  /** Spoken (once per cooldown) when speech-to-text fails but the voice still works. */
+  hearingErrorLine?: string;
   log?: (msg: string) => void;
 }
 
@@ -33,6 +35,8 @@ export interface SessionDeps {
  * One voice-channel session: receiver → utterances → pipeline → player.
  * M1 handles utterances one at a time in arrival order; M2 adds barge-in and policy on top.
  */
+const HEARING_APOLOGY_COOLDOWN_MS = 30_000;
+
 export interface SessionHandle {
   whenIdle: () => Promise<void>;
   /** While hushed the bot keeps listening but stays quiet; hushing also cuts the current reply. */
@@ -50,7 +54,10 @@ export function startSession(d: SessionDeps): SessionHandle {
   let replying = false;
   let interrupted = false;
   let hushed = false;
+  let heardThisTurn = false;
+  let lastHearingApology = -Infinity;
   const orchTrace = (ev: string): void => {
+    if (ev === 'heard') heardThisTurn = true;
     if (ev === 'llm-first-delta') replying = true;
   };
   const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: (ev) => (orchTrace(ev), d.latency?.trace(ev)), replyWordHardCap: d.replyWordHardCap });
@@ -63,10 +70,22 @@ export function startSession(d: SessionDeps): SessionHandle {
         if (wait > 0) await sleep(wait);
         const ctl = (current = new AbortController());
         replying = false;
+        heardThisTurn = false;
         d.latency?.begin();
         let r;
         try {
           r = await orch.handle(u, ctl.signal);
+        } catch (e) {
+          // Hearing failed (sidecar down?): say so once in a while if the voice still works, otherwise just log.
+          if (!heardThisTurn && d.hearingErrorLine && !ctl.signal.aborted && now() - lastHearingApology >= HEARING_APOLOGY_COOLDOWN_MS) {
+            lastHearingApology = now();
+            try {
+              d.player.enqueue(await d.tts.synthesize(d.hearingErrorLine, ctl.signal));
+            } catch {
+              /* voice is down too: nothing to say it with */
+            }
+          }
+          throw e;
         } finally {
           replying = false;
           if (current === ctl) current = null;
