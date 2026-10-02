@@ -30,7 +30,16 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8765
 Leave this window open. (Without `SPEECH_ENGINES=real` it runs fake engines, which is only useful for tests.)
 For GPU speech-to-text, install the CUDA 12 runtime libraries for faster-whisper; otherwise it falls back to CPU automatically.
 
-## 5. Check, then run
+## 5. Voices
+`/voice fast` (default) is Piper: quick and offline. To change it, pick another English voice from https://huggingface.co/rhasspy/piper-voices (an `.onnx` plus its `.onnx.json`), put both in `services/speech/models/`, and set `$env:PIPER_VOICE = "models/<name>.onnx"` before starting the sidecar.
+
+`/voice clone` speaks in a voice you provide (Coqui XTTS-v2, needs an NVIDIA GPU with about 4 GB free; the first use downloads roughly 2 GB):
+1. Record 10-20 seconds of one person talking naturally, in a quiet room, no music or other voices. Anything from 5 to 30 seconds works.
+2. Save it as a 16-bit PCM `.wav` (Audacity: Export as WAV, "Signed 16-bit PCM") in the `voices/` folder at the repo root, e.g. `voices/me.wav`. Only clone voices you have the right to use.
+3. In Discord: `/voices list` shows each sample and why one is unusable, `/voices use me` selects it and switches to the clone voice. `/voice fast` switches back.
+4. Switching warms the model up, so the first reply may still be slow. If the GPU is too full the bot says so once and keeps talking with the fast voice; `/status` shows free GPU memory.
+
+## 6. Check, then run
 In a second terminal from the repo root:
 1. `npm run doctor`: every line should say OK.
 2. Optional receive-only test: join a voice channel, run `npm run listen-test`, speak; it prints "heard N seconds from <you>".

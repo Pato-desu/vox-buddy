@@ -82,7 +82,7 @@
   - **Done:** Test: sidecar reports GPU memory; refuses clone load when free VRAM is too low and says so by voice and in `/status`.
 - [x] **M3.5 Clone quality and latency pass** · 2h
   - **Done:** Test: sentence-level clone TTS with warm-up on `/voice clone`; measured latency recorded in the report from simulation; Owner check for the real number.
-- [ ] **M3.6 Voice docs** · 1h
+- [x] **M3.6 Voice docs** · 1h
   - **Done:** Test: SETUP.md explains how to record a sample and pick a Piper voice.
 **Checkpoint M3:** the owner can switch voices with `/voice` and hear their own cloned sample.
 

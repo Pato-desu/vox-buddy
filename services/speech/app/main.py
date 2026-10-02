@@ -84,7 +84,9 @@ def _default_app() -> FastAPI:
 
         from .real_engines import PiperTts, WhisperStt, XttsClone
 
-        clone = XttsClone(voices_dir=os.environ.get("VOICES_DIR", "voices"))
+        # Default: the repo-root voices/ folder, the same one the bot scans.
+        voices_dir = os.environ.get("VOICES_DIR") or os.path.join(os.path.dirname(__file__), "..", "..", "..", "voices")
+        clone = XttsClone(voices_dir=voices_dir)
 
         def reaper() -> None:
             import time
