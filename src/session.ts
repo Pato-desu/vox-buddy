@@ -1,5 +1,6 @@
 import { ConversationMemory, withMemory } from './brain/memory.js';
 import type { BargeInMode } from './config.js';
+import { LatencyRecorder } from './pipeline/metrics.js';
 import { Orchestrator } from './pipeline/orchestrator.js';
 import type { Llm, Player, Stt, Tts, Utterance } from './pipeline/types.js';
 import { attachReceive, type ReceiverLike } from './voice/receive.js';
@@ -20,6 +21,9 @@ export interface SessionDeps {
   botTurnGapMs?: number;
   /** D5; default 'stop'. */
   bargeIn?: BargeInMode;
+  replyWordHardCap?: number;
+  /** Receives each turn's timings; its trace hook is fed by the pipeline. */
+  latency?: LatencyRecorder;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   log?: (msg: string) => void;
@@ -41,7 +45,7 @@ export function startSession(d: SessionDeps): { whenIdle: () => Promise<void> } 
   const orchTrace = (ev: string): void => {
     if (ev === 'llm-first-delta') replying = true;
   };
-  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: orchTrace });
+  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars, trace: (ev) => (orchTrace(ev), d.latency?.trace(ev)), replyWordHardCap: d.replyWordHardCap });
   const onUtterance = (u: Utterance): void => {
     chain = chain
       .then(async () => {
@@ -50,6 +54,7 @@ export function startSession(d: SessionDeps): { whenIdle: () => Promise<void> } 
         if (wait > 0) await sleep(wait);
         const ctl = (current = new AbortController());
         replying = false;
+        d.latency?.begin();
         let r;
         try {
           r = await orch.handle(u, ctl.signal);
@@ -57,7 +62,10 @@ export function startSession(d: SessionDeps): { whenIdle: () => Promise<void> } 
           replying = false;
           if (current === ctl) current = null;
         }
-        if (r && !ctl.signal.aborted) lastReplyEnd = now();
+        if (r && !ctl.signal.aborted) {
+          lastReplyEnd = now();
+          d.latency?.finish();
+        }
         if (r) d.log?.(`turn: ${u.userName} → ${r.sentences.length} sentence(s)`);
       })
       .catch((e: Error) => d.log?.(`turn failed: ${e.message}`)); // one bad turn never kills the session

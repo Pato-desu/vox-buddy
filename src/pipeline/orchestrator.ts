@@ -1,5 +1,6 @@
 import type { Llm, Player, Stt, Tts, Utterance } from './types.js';
 import { isJunkTranscript } from './policy.js';
+import { ReplyLimiter } from './length.js';
 import { SentenceSplitter } from './sentences.js';
 
 export interface OrchestratorDeps {
@@ -8,6 +9,8 @@ export interface OrchestratorDeps {
   tts: Tts;
   player: Player;
   minSentenceChars: number;
+  /** Hard cap on reply length in words (default: none). */
+  replyWordHardCap?: number;
   /** Optional timeline hook: called with an event name and the sentence index where relevant. */
   trace?: (event: TraceEvent, detail?: string) => void;
 }
@@ -32,9 +35,12 @@ export class Orchestrator {
 
     const splitter = new SentenceSplitter(this.deps.minSentenceChars);
     const sentences: string[] = [];
+    const limiter = new ReplyLimiter(deps.replyWordHardCap ?? Infinity);
     // TTS is started as soon as a sentence completes; playback order is preserved by awaiting in sequence.
     let tail: Promise<void> = Promise.resolve();
-    const speak = (sentence: string): void => {
+    const speak = (raw: string): void => {
+      const sentence = limiter.take(raw);
+      if (sentence === null) return;
       sentences.push(sentence);
       deps.trace?.('sentence', sentence);
       const audio = tts.synthesize(sentence, signal).then((c) => (deps.trace?.('audio-ready', sentence), c));
@@ -53,7 +59,7 @@ export class Orchestrator {
         first = false;
         deps.trace?.('llm-first-delta');
       }
-      if (signal?.aborted) break;
+      if (signal?.aborted || limiter.capped) break;
       splitter.push(delta).forEach(speak);
     }
     deps.trace?.('llm-done');
