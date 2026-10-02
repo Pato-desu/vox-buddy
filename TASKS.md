@@ -55,7 +55,7 @@
   - **Done:** Test: `persona.md` default loaded as the system prompt, `/persona reload`; `settings.json` read/write with defaults; tests.
 - [x] **M2.2 Conversation memory + speaker names** · 1.5h
   - **Done:** Test: per-channel history bounded to N turns; messages tagged with display names; cleared on leave.
-- [ ] **M2.3 Streaming pipeline (first word fast)** · 2h
+- [x] **M2.3 Streaming pipeline (first word fast)** · 2h
   - **Done:** Test: TTS of sentence 1 starts before the LLM finishes; timeline test with delayed fakes shows overlap and ≤ 300 ms gaps.
 - [ ] **M2.4 Answers-everything policy + self/bot guard** · 1.5h
   - **Done:** Test: every accepted human utterance gets a reply; own and other bots' audio ignored; junk transcripts (<2 words, filler-only like "uh") dropped; 1.5 s turn gap honoured.

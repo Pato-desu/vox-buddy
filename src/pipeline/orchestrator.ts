@@ -13,7 +13,7 @@ export interface OrchestratorDeps {
   trace?: (event: TraceEvent, detail?: string) => void;
 }
 
-export type TraceEvent = 'heard' | 'llm-first-delta' | 'sentence' | 'audio-ready' | 'audio-queued';
+export type TraceEvent = 'heard' | 'llm-first-delta' | 'llm-done' | 'sentence' | 'audio-ready' | 'audio-queued';
 
 export interface TurnResult {
   heard: string;
@@ -57,6 +57,7 @@ export class Orchestrator {
       if (signal?.aborted) break;
       splitter.push(delta).forEach(speak);
     }
+    deps.trace?.('llm-done');
     if (!signal?.aborted) splitter.flush().forEach(speak);
     await tail;
     return { heard, sentences };

@@ -52,6 +52,7 @@ const list = (items: string[], empty: string): string =>
 const LABELS: Record<string, string> = {
   heard: 'Heard (speech → text)',
   'llm-first-delta': 'Gemini starts answering',
+  'llm-done': 'Gemini finished',
   sentence: 'Sentence ready',
   'audio-ready': 'Voice synthesized',
   'audio-queued': 'Playing',
