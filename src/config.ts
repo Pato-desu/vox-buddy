@@ -1,4 +1,6 @@
 /** Tunable numbers from SPEC §5. Secrets come from the environment, never from here. */
+export type BargeInMode = 'stop' | 'sentence' | 'never';
+
 export interface Tuning {
   silenceEndMs: number;
   minUtteranceMs: number;
@@ -9,6 +11,8 @@ export interface Tuning {
   replyWordTarget: number;
   replyWordHardCap: number;
   bargeInStopMs: number;
+  /** D5: 'stop' drops the reply at once (default), 'sentence' finishes the playing sentence, 'never' ignores interruptions. */
+  bargeInMode: BargeInMode;
   cloneIdleUnloadS: number;
   ttsSentenceMinChars: number;
   geminiModel: string;
@@ -28,6 +32,7 @@ export const tuning: Tuning = {
   replyWordTarget: 40,
   replyWordHardCap: 80,
   bargeInStopMs: 300,
+  bargeInMode: 'stop',
   cloneIdleUnloadS: 600,
   ttsSentenceMinChars: 12,
   geminiModel: 'gemini-2.5-flash',

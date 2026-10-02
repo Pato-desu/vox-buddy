@@ -37,6 +37,11 @@ export class PlaybackQueue extends EventEmitter<PlaybackEvents> implements Playe
     if (!this.running) void this.drain();
   }
 
+  /** Drops queued chunks; the one playing finishes. */
+  dropPending(): void {
+    this.queue = [];
+  }
+
   /** Stops the current chunk and drops everything queued. */
   stop(): void {
     this.generation++;

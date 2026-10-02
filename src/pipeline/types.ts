@@ -34,4 +34,8 @@ export interface Tts {
 export interface Player {
   enqueue(chunk: AudioChunk): void;
   stop(): void;
+  /** Drops queued chunks but lets the one playing finish (barge-in variant B). */
+  dropPending?(): void;
+  /** True while audio is coming out. */
+  readonly playing?: boolean;
 }

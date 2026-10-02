@@ -5,7 +5,7 @@ To change a decision, write "D3: B" (or anything) in FEEDBACK.md, or tell a Clau
 ## Waiting for you
 (Nothing blocks. These have defaults applied; answer only if you disagree.)
 
-### D5 · Barge-in · 8 (I2 U2 L2) · review
+### D5 · Barge-in · 8 (I2 U2 L2) · review · default A locked by M2.5 (config switch `bargeInMode`)
 When a person starts talking over the bot, should it stop?
 - A) Stop immediately and drop the rest, default because a friend would stop
 - B) Finish the current sentence, then stop

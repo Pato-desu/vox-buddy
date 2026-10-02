@@ -78,6 +78,7 @@ client.on(Events.InteractionCreate, async (i) => {
         capture: tuning,
         minSentenceChars: tuning.ttsSentenceMinChars,
         botTurnGapMs: tuning.botTurnGapMs,
+        bargeIn: tuning.bargeInMode,
         resolveSpeaker: (id) => {
           const m = guild.members.cache.get(id);
           return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;

@@ -59,7 +59,7 @@
   - **Done:** Test: TTS of sentence 1 starts before the LLM finishes; timeline test with delayed fakes shows overlap and ≤ 300 ms gaps.
 - [x] **M2.4 Answers-everything policy + self/bot guard** · 1.5h
   - **Done:** Test: every accepted human utterance gets a reply; own and other bots' audio ignored; junk transcripts (<2 words, filler-only like "uh") dropped; 1.5 s turn gap honoured.
-- [ ] **M2.5 Barge-in** · 2h ⚠️D5
+- [x] **M2.5 Barge-in** · 2h ⚠️D5
   - **Done:** Test: speech start during playback stops it within 300 ms (fake clock), clears the queue, and the interrupter's utterance is handled next; D5 B/C variants are config switches.
 - [ ] **M2.6 Multi-speaker queue** · 2h
   - **Done:** Test: overlapping utterances from 3 users are answered in arrival order without overlapping speech or duplicate replies.
