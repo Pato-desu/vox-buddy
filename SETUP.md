@@ -11,7 +11,7 @@ You need: Node.js 24 LTS, Python 3.11, ffmpeg, a Discord server you control, a G
 ## 2. Make the Discord app
 1. https://discord.com/developers/applications → New Application → Bot → Reset Token → copy the token.
 2. No privileged intents are needed (leave Presence, Server Members and Message Content off).
-3. OAuth2 → URL Generator: scopes `bot` and `applications.commands`; permissions: View Channels, Connect, Speak. Open the URL and add the bot to your server.
+3. OAuth2 → URL Generator: scopes `bot` and `applications.commands`; permissions: View Channels, Connect, Speak (add Send Messages only if you want `/mirror`). Open the URL and add the bot to your server.
 4. In Discord, enable Developer Mode (Settings → Advanced), right-click your server → Copy Server ID.
 
 ## 3. Secrets

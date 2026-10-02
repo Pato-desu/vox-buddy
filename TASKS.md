@@ -108,7 +108,7 @@
   - **Done:** Test: with realistic fake delays the first word lands within 2 s.
 - [x] **M5.3 Security and secrets review** · 1h
   - **Done:** Test: repo grep finds no tokens/keys; `.env` ignored; logs redacted.
-- [ ] **M5.4 Docs and README polish** · 1.5h
+- [x] **M5.4 Docs and README polish** · 1.5h
   - **Done:** Test: README, SETUP.md and CLAUDE.md match the real commands and config.
 - [ ] **M5.5 Final QA pass** · 1h
   - **Done:** Test: `npm run check` and smoke pass; milestone review done; status set to Release candidate.
