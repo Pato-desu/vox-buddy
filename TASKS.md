@@ -34,7 +34,7 @@
   - **Done:** Test: `@google/genai` streaming wrapper with persona + history; with an injected fake transport it yields text deltas; handles safety blocks and errors with typed results.
 - [x] **M1.3 Sentence splitter + text cleaner** · 1.5h
   - **Done:** Test: streamed deltas become speakable sentences (min 12 chars, handles "Mr.", numbers, ellipses); markdown, emoji, asterisk actions and URLs are stripped; table-driven tests.
-- [ ] **M1.4 Speech sidecar skeleton** · 2h
+- [x] **M1.4 Speech sidecar skeleton** · 2h
   - **Done:** Test: pytest — FastAPI app with `/health`, `/stt`, `/tts` over engine interfaces; fake engines return deterministic audio/text; wav encode/decode utilities tested.
 - [ ] **M1.5 Real engines in the sidecar** · 2h
   - **Done:** Test: faster-whisper STT adapter (CUDA→CPU fallback) and Piper TTS adapter implemented behind the interface, with model download script and lazy loading; unit-tested with mocks; real-model run is an Owner check.
