@@ -30,7 +30,7 @@
 ## M1 — First talk
 - [x] **M1.1 Pipeline contracts + orchestrator** · 2h
   - **Done:** Test: interfaces `Stt`, `Llm`, `Tts`, `Player` and an orchestrator that takes an utterance and drives them using fakes; unit test shows utterance → text → streamed sentences → audio chunks in order.
-- [ ] **M1.2 Gemini client** · 2h
+- [x] **M1.2 Gemini client** · 2h
   - **Done:** Test: `@google/genai` streaming wrapper with persona + history; with an injected fake transport it yields text deltas; handles safety blocks and errors with typed results.
 - [x] **M1.3 Sentence splitter + text cleaner** · 1.5h
   - **Done:** Test: streamed deltas become speakable sentences (min 12 chars, handles "Mr.", numbers, ellipses); markdown, emoji, asterisk actions and URLs are stripped; table-driven tests.
