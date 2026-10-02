@@ -13,11 +13,11 @@
 | M5 Release candidate | 5 | 7 |
 
 ## M0 — Foundation
-- [ ] **M0.1 Scaffold** · 1.5h
+- [x] **M0.1 Scaffold** · 1.5h
   - **Done:** Test: `npm ci && npm run typecheck` passes on a TypeScript (strict, ESM, Node 24) project with vitest, eslint, `src/`, `tests/`, `services/speech/`.
-- [ ] **M0.2 Config and logging** · 1h
+- [x] **M0.2 Config and logging** · 1h
   - **Done:** Test: `src/config.ts` holds every number from SPEC §5 with types; env loader (`DISCORD_TOKEN`, `GOOGLE_API_KEY`, `GUILD_ID`) validates and never prints secrets; `.env.example` exists; unit tests.
-- [ ] **M0.3 Check command** · 1h
+- [x] **M0.3 Check command** · 1h
   - **Done:** Test: `npm run check` runs typecheck, lint, vitest and the sidecar's pytest (skipped with a clear message if Python is absent), then builds; exits non-zero on any failure.
 - [ ] **M0.4 Build report generator** · 2h
   - **Done:** Test: `npm run demo` writes `dist/demo.html`, a single self-contained page fragment (≤ 15 MB, no external requests except Google Fonts, no eval) showing build number, what's new, what to try, decisions waiting, from `.autodev/devinfo.json`.
