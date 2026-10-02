@@ -9,9 +9,11 @@ export interface Settings {
   cloneSample: string | null;
   /** Voice channel to join on start, if any (D8). */
   autoJoinChannelId: string | null;
+  /** Text channel that gets heard/said lines (D10); null = off. */
+  mirrorChannelId: string | null;
 }
 
-export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null };
+export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null };
 
 export interface SettingsIo {
   read: (path: string) => string;
@@ -28,6 +30,7 @@ export function normalizeSettings(raw: unknown): Settings {
     voice: o.voice === 'clone' ? 'clone' : 'fast',
     cloneSample: str(o.cloneSample),
     autoJoinChannelId: str(o.autoJoinChannelId),
+    mirrorChannelId: str(o.mirrorChannelId),
   };
 }
 

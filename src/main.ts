@@ -6,6 +6,7 @@ import { GeminiLlm } from './brain/llm.js';
 import { commandDefs } from './commands.js';
 import { createLogger, parseLogLevel } from './log.js';
 import { loadEnv, redact, tuning } from './config.js';
+import { TranscriptMirror } from './mirror.js';
 import { AloneWatcher } from './voice/alone.js';
 import { PersonaStore } from './persona.js';
 import { SettingsStore } from './settings.js';
@@ -36,6 +37,14 @@ export const settings = new SettingsStore('settings.json');
 let cloneReady = false;
 const refreshClone = async (): Promise<void> => void (cloneReady = Boolean((await sidecar.health()).clone));
 const tts = new VoiceTts({ backend: sidecar, settings: () => settings.get(), cloneReady: () => cloneReady, log: (m) => logger.info(m) });
+const mirror = new TranscriptMirror({
+  post: async (text) => {
+    const id = settings.get().mirrorChannelId;
+    const ch = id ? await client.channels.fetch(id) : null;
+    if (ch?.isSendable()) await ch.send({ content: text, allowedMentions: { parse: [] } });
+  },
+  onError: (e) => logger.warn(`mirror post failed: ${e.message}`),
+});
 const makeLlm = (memory: ConversationMemory) =>
   new GeminiLlm({
     history: () => memory.history(),
@@ -143,6 +152,7 @@ client.on(Events.InteractionCreate, async (i) => {
         },
         log: (m) => logger.info(m),
         debug: (m) => logger.debug(m),
+        onTurn: (who, heard, said) => settings.get().mirrorChannelId && mirror.turn(who, heard, said),
       });
       const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (logger.info('alone for too long, leaving'), teardown(guild.id)) });
       active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
@@ -170,6 +180,14 @@ client.on(Events.InteractionCreate, async (i) => {
         await i.reply({ content: `Cloning ${name}.${cloneReady ? '' : " The clone engine isn't up yet, so I'll use the fast voice meanwhile."}`, ephemeral: true });
       } else {
         await i.reply({ content: formatVoices(samples, settings.get().cloneSample), ephemeral: true });
+      }
+    } else if (i.commandName === 'mirror') {
+      if (i.options.getSubcommand() === 'on') {
+        settings.update({ mirrorChannelId: i.channelId });
+        await i.reply({ content: 'Mirroring heard/said lines here. They are public to this channel; /mirror off stops it.' });
+      } else {
+        settings.update({ mirrorChannelId: null });
+        await i.reply({ content: 'Mirror off.', ephemeral: true });
       }
     } else if (i.commandName === 'hush') {
       const a = active.get(guild.id);

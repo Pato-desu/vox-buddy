@@ -15,7 +15,7 @@ When a person starts talking over the bot, should it stop?
 - A) English speech and persona, default
 - B) Another language (tell us which; needs a different Piper/XTTS voice and persona)
 
-### D10 · Transcript mirror · 6 (I2 U1 L3) · review
+### D10 · Transcript mirror · 6 (I2 U1 L3) · review · default A locked by M4.6 (`/mirror on` turns it on per channel)
 - A) Off by default, switchable with a config flag, default because chat noise
 - B) On, posts what it heard and said in a text channel
 

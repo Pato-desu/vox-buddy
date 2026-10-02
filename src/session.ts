@@ -29,6 +29,8 @@ export interface SessionDeps {
   /** Spoken (once per cooldown) when speech-to-text fails but the voice still works. */
   hearingErrorLine?: string;
   log?: (msg: string) => void;
+  /** Called after each finished reply (for the optional transcript mirror). */
+  onTurn?: (speaker: string, heard: string, said: string) => void;
   /** Transcripts go here only; wire it to a debug-level logger. */
   debug?: (msg: string) => void;
 }
@@ -101,6 +103,7 @@ export function startSession(d: SessionDeps): SessionHandle {
           lastReplyEnd = now();
           d.latency?.finish();
         }
+        if (r && !ctl.signal.aborted) d.onTurn?.(u.userName, r.heard, r.sentences.join(' '));
         if (r) d.log?.(`turn: ${u.userName} → ${r.sentences.length} sentence(s)`);
       })
       .catch((e: Error) => d.log?.(`turn failed: ${e.message}`)); // one bad turn never kills the session

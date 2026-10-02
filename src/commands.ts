@@ -20,6 +20,11 @@ export const commandDefs = [
     .setDescription('List cloneable voice samples from the voices/ folder, or pick one')
     .addSubcommand((s) => s.setName('list').setDescription('Show the samples'))
     .addSubcommand((s) => s.setName('use').setDescription('Use a sample for the clone voice').addStringOption((o) => o.setName('name').setDescription('Sample name (see /voices list)').setRequired(true))),
+  new SlashCommandBuilder()
+    .setName('mirror')
+    .setDescription('Post what the bot hears and says to this text channel (off by default)')
+    .addSubcommand((s) => s.setName('on').setDescription('Mirror into this channel'))
+    .addSubcommand((s) => s.setName('off').setDescription('Stop mirroring')),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice' | 'voices';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice' | 'voices' | 'mirror';
