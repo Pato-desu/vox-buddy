@@ -23,7 +23,7 @@ def test_decode_rejects_garbage_and_stereo():
 
 def test_health(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json() == {"ok": True, "stt": "fake", "tts": "fake"}
+    assert r.status_code == 200 and r.json() == {"ok": True, "stt": "fake", "tts": "fake", "clone": None}
 
 
 def test_stt_is_deterministic(client):
@@ -45,3 +45,23 @@ def test_tts_returns_wav_of_expected_length(client):
 @pytest.mark.parametrize("text", ["", "   ", "x" * 1001])
 def test_tts_rejects_bad_text(client, text):
     assert client.post("/tts", json={"text": text}).status_code == 400
+
+
+def test_health_reports_clone_availability():
+    from app.engines import FakeClone
+
+    assert TestClient(create_app()).get("/health").json()["clone"] is None
+    assert TestClient(create_app(clone=FakeClone())).get("/health").json()["clone"] == "fake-clone"
+
+
+def test_clone_voice_routes_to_clone_engine_and_rejects_when_missing():
+    from app.engines import FakeClone
+
+    plain = TestClient(create_app())
+    assert plain.post("/tts", json={"text": "hi there", "voice": "clone"}).status_code == 409
+    c = TestClient(create_app(clone=FakeClone()))
+    r = c.post("/tts", json={"text": "hi there", "voice": "clone", "sample": "me"})
+    assert r.status_code == 200
+    _, rate = decode_wav(r.content)
+    assert rate == 24000  # the clone engine's rate, not the fast voice's 16000
+    assert c.post("/tts", json={"text": "hi", "voice": "robot"}).status_code == 400

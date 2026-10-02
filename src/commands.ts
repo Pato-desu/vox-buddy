@@ -9,6 +9,12 @@ export const commandDefs = [
     .addSubcommand((s) => s.setName('reload').setDescription('Re-read persona.md')),
   new SlashCommandBuilder().setName('hush').setDescription('Stop answering (keeps listening). Run again to resume'),
   new SlashCommandBuilder().setName('status').setDescription('Show channel, voice, speech sidecar health and latency'),
+  new SlashCommandBuilder()
+    .setName('voice')
+    .setDescription('Pick the bot voice')
+    .addStringOption((o) =>
+      o.setName('which').setDescription('fast = quick offline voice, clone = your cloned sample').setRequired(true).addChoices({ name: 'fast', value: 'fast' }, { name: 'clone', value: 'clone' }),
+    ),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'voice';

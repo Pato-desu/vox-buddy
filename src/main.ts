@@ -11,6 +11,7 @@ import { LatencyRecorder } from './pipeline/metrics.js';
 import { formatStatus } from './status.js';
 import { startSession, type SessionHandle } from './session.js';
 import { SidecarClient } from './speech/client.js';
+import { VoiceTts } from './speech/voice.js';
 import { ManagedConnection, createDiscordJoiner } from './voice/connection.js';
 import { DiscordSink } from './voice/discord-sink.js';
 import { PlaybackQueue } from './voice/playback.js';
@@ -28,6 +29,9 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 const sidecar = new SidecarClient({ baseUrl: process.env.SIDECAR_URL ?? 'http://127.0.0.1:8765' });
 const persona = new PersonaStore('persona.md', tuning.botName);
 export const settings = new SettingsStore('settings.json');
+let cloneReady = false;
+const refreshClone = async (): Promise<void> => void (cloneReady = Boolean((await sidecar.health()).clone));
+const tts = new VoiceTts({ backend: sidecar, settings: () => settings.get(), cloneReady: () => cloneReady, log: (m) => console.log(m) });
 const makeLlm = (memory: ConversationMemory) =>
   new GeminiLlm({
     history: () => memory.history(),
@@ -51,6 +55,7 @@ const active = new Map<string, Active>();
 
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
+  await refreshClone();
   console.log(`ready as ${c.user.tag}; slash commands registered`);
 });
 
@@ -80,7 +85,7 @@ client.on(Events.InteractionCreate, async (i) => {
         replyWordHardCap: tuning.replyWordHardCap,
         receiver: adaptReceiver(raw),
         stt: sidecar,
-        tts: sidecar,
+        tts,
         llm: makeLlm(memory),
         player: new PlaybackQueue(sink),
         capture: tuning,
@@ -98,6 +103,12 @@ client.on(Events.InteractionCreate, async (i) => {
     } else if (i.commandName === 'persona') {
       persona.reload();
       await i.reply({ content: 'Persona reloaded.', ephemeral: true });
+    } else if (i.commandName === 'voice') {
+      const which = i.options.getString('which', true) === 'clone' ? 'clone' : 'fast';
+      settings.update({ voice: which });
+      await refreshClone();
+      const note = which === 'clone' && !cloneReady ? " The clone voice isn't ready yet, so I'll use the fast voice for now." : '';
+      await i.reply({ content: `Voice set to ${which}.${note}`, ephemeral: true });
     } else if (i.commandName === 'hush') {
       const a = active.get(guild.id);
       if (!a) return void (await i.reply({ content: "I'm not in a voice channel.", ephemeral: true }));

@@ -72,7 +72,7 @@
 **Checkpoint M2:** simulated multi-person conversation timeline in the report; locally, the bot banters, stops when interrupted and never answers itself.
 
 ## M3 — Two voices
-- [ ] **M3.1 Voice abstraction + `/voice`** · 1.5h
+- [x] **M3.1 Voice abstraction + `/voice`** · 1.5h
   - **Done:** Test: `fast` and `clone` voices selectable by command and persisted in settings; falls back to `fast` if clone isn't ready.
 - [ ] **M3.2 XTTS-v2 engine in the sidecar** · 2h
   - **Done:** Test: pytest with mocked model; lazy load, unload after idle (fake clock), streaming-friendly chunks.

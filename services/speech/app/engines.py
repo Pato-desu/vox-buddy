@@ -17,6 +17,17 @@ class TtsEngine(Protocol):
         ...
 
 
+class CloneEngine(Protocol):
+    """Voice cloning TTS: speaks in the voice of a reference sample from voices/."""
+
+    name: str
+    sample_rate: int
+
+    def synthesize(self, text: str, sample: str | None) -> bytes:
+        """Returns 16-bit mono PCM. Raises ValueError if the voice cannot be used right now."""
+        ...
+
+
 class FakeStt:
     """Deterministic: describes the audio it was given."""
 
@@ -36,3 +47,15 @@ class FakeTts:
         from .audio import sine_pcm
 
         return sine_pcm(0.05 * len(text), self.sample_rate)
+
+
+class FakeClone:
+    """Deterministic clone stand-in: a higher tone than FakeTts so tests can tell them apart."""
+
+    name = "fake-clone"
+    sample_rate = 24000
+
+    def synthesize(self, text: str, sample: str | None) -> bytes:
+        from .audio import sine_pcm
+
+        return sine_pcm(0.05 * len(text), self.sample_rate, 440.0)

@@ -90,11 +90,11 @@ export class SidecarClient implements Stt, Tts {
     throw last instanceof SidecarError ? last : new SidecarError(`sidecar unreachable: ${(last as Error)?.message ?? last}`);
   }
 
-  async health(): Promise<{ ok: boolean; stt?: string; tts?: string }> {
+  async health(): Promise<{ ok: boolean; stt?: string; tts?: string; clone?: string | null }> {
     try {
       const res = await this.f(this.o.baseUrl + '/health', { signal: AbortSignal.timeout(this.timeoutMs) });
       if (!res.ok) return { ok: false };
-      return (await res.json()) as { ok: boolean; stt?: string; tts?: string };
+      return (await res.json()) as { ok: boolean; stt?: string; tts?: string; clone?: string | null };
     } catch {
       return { ok: false };
     }
@@ -106,9 +106,13 @@ export class SidecarClient implements Stt, Tts {
   }
 
   async synthesize(sentence: string, signal?: AbortSignal): Promise<AudioChunk> {
+    return this.synthesizeVoice(sentence, 'fast', null, signal);
+  }
+
+  async synthesizeVoice(sentence: string, voice: 'fast' | 'clone', sample: string | null, signal?: AbortSignal): Promise<AudioChunk> {
     const res = await this.request(
       '/tts',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: sentence }) },
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: sentence, voice, sample }) },
       signal,
     );
     return decodeWav(Buffer.from(await res.arrayBuffer()));
