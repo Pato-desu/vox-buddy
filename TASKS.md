@@ -44,7 +44,7 @@
   - **Done:** Test: `src/voice/connection.ts` wraps @discordjs/voice with DAVE enabled; join/leave/reconnect logic unit-tested against a fake adapter. Owner: `npm run listen-test` prints "heard N seconds from <user>" in a real call.
 - [x] **M1.8 Utterance capture** · 2h
   - **Done:** Test: per-user opus stream → 48 kHz → 16 kHz mono PCM with silence end, noise gate and max length; ignores bots; two speakers yield two utterances; tested on generated PCM fixtures.
-- [ ] **M1.9 Playback queue** · 1.5h
+- [x] **M1.9 Playback queue** · 1.5h
   - **Done:** Test: audio-chunk queue plays in order via an `AudioPlayer` abstraction, supports `stop()`, reports start/end events; tested with fakes.
 - [ ] **M1.10 Wire up, slash commands, simulate, doctor, SETUP.md** · 2h
   - **Done:** Test: `/join`, `/leave` registered; `npm run simulate -- tests/fixtures/hello.wav` (generated fixture, fake engines by default) produces reply wavs; `npm run doctor` reports each check; `SETUP.md` covers Windows from zero (Node, Python venv, ffmpeg, Discord app + intents, `.env`).
