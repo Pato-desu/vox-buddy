@@ -60,9 +60,21 @@ def create_app(
 def _default_app() -> FastAPI:
     """SPEECH_ENGINES=real uses faster-whisper and Piper (lazy-loaded); anything else uses fakes."""
     if os.environ.get("SPEECH_ENGINES") == "real":
-        from .real_engines import PiperTts, WhisperStt
+        import threading
 
-        return create_app(WhisperStt(), PiperTts())
+        from .real_engines import PiperTts, WhisperStt, XttsClone
+
+        clone = XttsClone(voices_dir=os.environ.get("VOICES_DIR", "voices"))
+
+        def reaper() -> None:
+            import time
+
+            while True:
+                time.sleep(30)
+                clone.unload_if_idle()
+
+        threading.Thread(target=reaper, daemon=True).start()
+        return create_app(WhisperStt(), PiperTts(), clone)
     return create_app()
 
 

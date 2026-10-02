@@ -69,3 +69,83 @@ class PiperTts:
     def synthesize(self, text: str) -> bytes:
         voice = self._load()
         return b"".join(voice.synthesize_stream_raw(text))
+
+
+class XttsClone:
+    """Coqui XTTS-v2 voice cloning from a reference wav in `voices_dir`.
+
+    The model is big, so it loads on first use and unloads after `idle_unload_s` without requests
+    (`unload_if_idle` is polled by the sidecar).
+    """
+
+    name = "xtts-v2"
+    sample_rate = 24000
+
+    def __init__(
+        self,
+        voices_dir: str = "voices",
+        idle_unload_s: float = 600.0,
+        loader: Callable[[], Any] | None = None,
+        clock: Callable[[], float] | None = None,
+        on_unload: Callable[[], None] | None = None,
+    ) -> None:
+        import time
+
+        self.voices_dir = voices_dir
+        self.idle_unload_s = idle_unload_s
+        self._loader = loader
+        self._clock = clock or time.monotonic
+        self._on_unload = on_unload
+        self._model: Any = None
+        self._last_used = 0.0
+
+    @property
+    def loaded(self) -> bool:
+        return self._model is not None
+
+    def _sample_path(self, sample: str | None) -> str:
+        if not sample or sample != os.path.basename(sample) or sample.startswith("."):
+            raise ValueError("no voice sample selected")
+        path = os.path.join(self.voices_dir, sample if sample.endswith(".wav") else sample + ".wav")
+        if not os.path.isfile(path):
+            raise ValueError(f"voice sample not found: {sample}")
+        return path
+
+    def _load(self) -> Any:
+        if self._model is None:
+            loader = self._loader
+            if loader is None:
+
+                def loader() -> Any:
+                    from TTS.api import TTS  # type: ignore
+
+                    return TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+
+            self._model = loader()
+        return self._model
+
+    def synthesize(self, text: str, sample: str | None) -> bytes:
+        path = self._sample_path(sample)
+        model = self._load()
+        try:
+            samples = model.tts(text=text, speaker_wav=path, language="en")
+        finally:
+            self._last_used = self._clock()
+        a = array.array("h", (max(-32768, min(32767, int(s * 32767))) for s in samples))
+        return a.tobytes()
+
+    def synthesize_chunks(self, text: str, sample: str | None, chunk_s: float = 0.5):
+        """Same audio as `synthesize`, in ~chunk_s pieces (so callers can start playback early)."""
+        pcm = self.synthesize(text, sample)
+        step = int(self.sample_rate * chunk_s) * 2
+        for i in range(0, len(pcm), step):
+            yield pcm[i : i + step]
+
+    def unload_if_idle(self) -> bool:
+        """Frees the model once idle for long enough. Returns True if it unloaded."""
+        if self._model is None or self._clock() - self._last_used < self.idle_unload_s:
+            return False
+        self._model = None
+        if self._on_unload:
+            self._on_unload()  # e.g. release GPU memory
+        return True

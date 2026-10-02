@@ -68,3 +68,60 @@ def test_piper_loads_once_and_joins_chunks():
     assert tts.synthesize("hi") == b"abhi"
     tts.synthesize("again")
     assert loads == ["v.onnx"] and tts.sample_rate == 16000
+
+
+class FakeXtts:
+    def __init__(self):
+        self.calls = []
+
+    def tts(self, text, speaker_wav, language):
+        self.calls.append((text, speaker_wav, language))
+        return [0.0, 0.5, -0.5, 1.0] * 6000  # 1 s at 24 kHz
+
+
+def make_clone(tmp_path, clock, loads):
+    from app.real_engines import XttsClone
+
+    (tmp_path / "me.wav").write_bytes(b"RIFF")
+    model = FakeXtts()
+
+    def loader():
+        loads.append(1)
+        return model
+
+    return XttsClone(voices_dir=str(tmp_path), idle_unload_s=100, loader=loader, clock=clock), model
+
+
+def test_xtts_loads_lazily_and_converts_to_pcm(tmp_path):
+    t, loads = [0.0], []
+    clone, model = make_clone(tmp_path, lambda: t[0], loads)
+    assert not clone.loaded and loads == []
+    pcm = clone.synthesize("hello", "me")
+    assert loads == [1] and clone.loaded
+    assert len(pcm) == 24000 * 2
+    assert model.calls[0][1].endswith("me.wav") and model.calls[0][2] == "en"
+
+
+def test_xtts_unloads_after_idle(tmp_path):
+    t, loads = [0.0], []
+    clone, _ = make_clone(tmp_path, lambda: t[0], loads)
+    clone.synthesize("hello", "me")
+    t[0] = 99
+    assert clone.unload_if_idle() is False and clone.loaded
+    t[0] = 101
+    assert clone.unload_if_idle() is True and not clone.loaded
+    clone.synthesize("again", "me")  # reloads on demand
+    assert loads == [1, 1]
+
+
+def test_xtts_chunks_cover_the_whole_clip(tmp_path):
+    clone, _ = make_clone(tmp_path, lambda: 0.0, [])
+    chunks = list(clone.synthesize_chunks("hello", "me", chunk_s=0.4))
+    assert len(chunks) == 3 and sum(len(c) for c in chunks) == 24000 * 2
+
+
+@pytest.mark.parametrize("sample", [None, "", "../etc/passwd", ".hidden", "missing"])
+def test_xtts_rejects_bad_samples(tmp_path, sample):
+    clone, _ = make_clone(tmp_path, lambda: 0.0, [])
+    with pytest.raises(ValueError):
+        clone.synthesize("hello", sample)
