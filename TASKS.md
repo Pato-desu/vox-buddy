@@ -53,7 +53,7 @@
 ## M2 — Conversation feel
 - [x] **M2.1 Persona + settings** · 1.5h
   - **Done:** Test: `persona.md` default loaded as the system prompt, `/persona reload`; `settings.json` read/write with defaults; tests.
-- [ ] **M2.2 Conversation memory + speaker names** · 1.5h
+- [x] **M2.2 Conversation memory + speaker names** · 1.5h
   - **Done:** Test: per-channel history bounded to N turns; messages tagged with display names; cleared on leave.
 - [ ] **M2.3 Streaming pipeline (first word fast)** · 2h
   - **Done:** Test: TTS of sentence 1 starts before the LLM finishes; timeline test with delayed fakes shows overlap and ≤ 300 ms gaps.

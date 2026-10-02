@@ -1,6 +1,7 @@
 // Bot entry point: `npm start`. Needs .env (see SETUP.md) and the speech sidecar running.
 import { Client, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
 import { createGenAiTransport } from './brain/gemini.js';
+import { ConversationMemory } from './brain/memory.js';
 import { GeminiLlm } from './brain/llm.js';
 import { commandDefs } from './commands.js';
 import { loadEnv, redact, tuning } from './config.js';
@@ -25,14 +26,16 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 const sidecar = new SidecarClient({ baseUrl: process.env.SIDECAR_URL ?? 'http://127.0.0.1:8765' });
 const persona = new PersonaStore('persona.md', tuning.botName);
 export const settings = new SettingsStore('settings.json');
-const llm = new GeminiLlm({
-  transport: createGenAiTransport(env.googleApiKey),
-  model: tuning.geminiModel,
-  temperature: tuning.geminiTemperature,
-  persona: () => persona.get(),
-  blockedLine: "Ha, I'm going to skip that one.",
-  errorLine: 'Sorry, my brain glitched. Say that again?',
-});
+const makeLlm = (memory: ConversationMemory) =>
+  new GeminiLlm({
+    history: () => memory.history(),
+    transport: createGenAiTransport(env.googleApiKey),
+    model: tuning.geminiModel,
+    temperature: tuning.geminiTemperature,
+    persona: () => persona.get(),
+    blockedLine: "Ha, I'm going to skip that one.",
+    errorLine: 'Sorry, my brain glitched. Say that again?',
+  });
 
 interface Active {
   managed: ManagedConnection;
@@ -64,11 +67,13 @@ client.on(Events.InteractionCreate, async (i) => {
       // Subscribe the player to the connection through the library's own connection object.
       const { getVoiceConnection } = await import('@discordjs/voice');
       getVoiceConnection(guild.id)?.subscribe(sink.player);
+      const memory = new ConversationMemory(tuning.historyTurns);
       startSession({
+        memory,
         receiver: adaptReceiver(raw),
         stt: sidecar,
         tts: sidecar,
-        llm,
+        llm: makeLlm(memory),
         player: new PlaybackQueue(sink),
         capture: tuning,
         minSentenceChars: tuning.ttsSentenceMinChars,

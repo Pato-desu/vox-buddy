@@ -1,3 +1,4 @@
+import { ConversationMemory, withMemory } from './brain/memory.js';
 import { Orchestrator } from './pipeline/orchestrator.js';
 import type { Llm, Player, Stt, Tts, Utterance } from './pipeline/types.js';
 import { attachReceive, type ReceiverLike } from './voice/receive.js';
@@ -11,6 +12,8 @@ export interface SessionDeps {
   player: Player;
   capture: CaptureOptions;
   minSentenceChars: number;
+  /** If given, replies are remembered in it (cleared by the caller on leave). */
+  memory?: ConversationMemory;
   resolveSpeaker: (userId: string) => Speaker | undefined;
   log?: (msg: string) => void;
 }
@@ -20,7 +23,7 @@ export interface SessionDeps {
  * M1 handles utterances one at a time in arrival order; M2 adds barge-in and policy on top.
  */
 export function startSession(d: SessionDeps): { whenIdle: () => Promise<void> } {
-  const orch = new Orchestrator({ stt: d.stt, llm: d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars });
+  const orch = new Orchestrator({ stt: d.stt, llm: d.memory ? withMemory(d.llm, d.memory) : d.llm, tts: d.tts, player: d.player, minSentenceChars: d.minSentenceChars });
   let chain: Promise<void> = Promise.resolve();
   const onUtterance = (u: Utterance): void => {
     chain = chain
