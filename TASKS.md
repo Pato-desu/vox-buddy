@@ -40,9 +40,9 @@
   - **Done:** Test: faster-whisper STT adapter (CUDA→CPU fallback) and Piper TTS adapter implemented behind the interface, with model download script and lazy loading; unit-tested with mocks; real-model run is an Owner check.
 - [x] **M1.6 Sidecar client in the bot** · 1.5h
   - **Done:** Test: typed HTTP client (timeouts, retries, health) against a local fake server in vitest.
-- [ ] **M1.7 Voice join + DAVE receive** · 2h
+- [x] **M1.7 Voice join + DAVE receive** · 2h
   - **Done:** Test: `src/voice/connection.ts` wraps @discordjs/voice with DAVE enabled; join/leave/reconnect logic unit-tested against a fake adapter. Owner: `npm run listen-test` prints "heard N seconds from <user>" in a real call.
-- [ ] **M1.8 Utterance capture** · 2h
+- [x] **M1.8 Utterance capture** · 2h
   - **Done:** Test: per-user opus stream → 48 kHz → 16 kHz mono PCM with silence end, noise gate and max length; ignores bots; two speakers yield two utterances; tested on generated PCM fixtures.
 - [ ] **M1.9 Playback queue** · 1.5h
   - **Done:** Test: audio-chunk queue plays in order via an `AudioPlayer` abstraction, supports `stop()`, reports start/end events; tested with fakes.
