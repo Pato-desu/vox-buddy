@@ -104,9 +104,9 @@
 ## M5 — Release candidate
 - [x] **M5.1 Full simulated soak** · 2h
   - **Done:** Test: 200 simulated turns with random overlaps and faults; no leaks, hangs or crashes.
-- [ ] **M5.2 Latency budget test** · 1.5h
+- [x] **M5.2 Latency budget test** · 1.5h
   - **Done:** Test: with realistic fake delays the first word lands within 2 s.
-- [ ] **M5.3 Security and secrets review** · 1h
+- [x] **M5.3 Security and secrets review** · 1h
   - **Done:** Test: repo grep finds no tokens/keys; `.env` ignored; logs redacted.
 - [ ] **M5.4 Docs and README polish** · 1.5h
   - **Done:** Test: README, SETUP.md and CLAUDE.md match the real commands and config.
