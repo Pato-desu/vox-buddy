@@ -108,6 +108,16 @@ export class SidecarClient implements Stt, Tts {
     }
   }
 
+  /** Preloads the clone voice. Resolves false (never throws) when the sidecar can't. */
+  async warmup(sample: string | null): Promise<boolean> {
+    try {
+      await this.request('/warmup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sample }) });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async transcribe(pcm: Int16Array, sampleRate: number): Promise<string> {
     const res = await this.request('/stt', { method: 'POST', body: new Uint8Array(encodeWav(pcm, sampleRate)) });
     return ((await res.json()) as { text: string }).text;

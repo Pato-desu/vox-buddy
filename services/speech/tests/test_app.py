@@ -84,3 +84,13 @@ def test_low_vram_clone_is_a_409_with_the_reason():
     assert c.get("/health").json()["gpu"] == {"free_mb": 900, "total_mb": 8000}
     r = c.post("/tts", json={"text": "hi there", "voice": "clone", "sample": "me"})
     assert r.status_code == 409 and "low vram" in r.json()["detail"]
+
+
+def test_warmup_preloads_the_clone():
+    from app.engines import FakeClone
+
+    clone = FakeClone()
+    c = TestClient(create_app(clone=clone))
+    assert c.post("/warmup", json={"sample": "me"}).json() == {"ok": True}
+    assert clone.warmed == ["me"]
+    assert TestClient(create_app()).post("/warmup", json={}).status_code == 409

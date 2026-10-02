@@ -23,6 +23,11 @@ export interface TimelineView {
   events: { tMs: number; event: string; detail?: string | undefined }[];
 }
 
+export interface VoiceCompareView {
+  rows: { voice: string; firstWordMs: number | null; note: string }[];
+  budgetMs: number;
+}
+
 export interface ConversationView {
   turns: { speaker: string; said: string; reply: string; firstWordMs: number | null }[];
   latency: RollingSummary;
@@ -91,6 +96,13 @@ function renderConversation(c: ConversationView): string {
   return `<p class="muted">Three friends talk in turn; Buddy answers each one, one short reply at a time. Fake engines with realistic delays.</p>${turns}${table}`;
 }
 
+function renderVoices(v: VoiceCompareView): string {
+  const rows = v.rows
+    .map((r) => `<tr><td>${esc(r.voice)}</td><td>${r.firstWordMs === null ? 'n/a' : `${r.firstWordMs} ms`}</td><td>${esc(r.note)}</td></tr>`)
+    .join('');
+  return `<p class="muted">Same sentence, both voices, simulated delays (budget ${v.budgetMs} ms). The real clone number is an Owner check on your GPU.</p><table class="lat"><tr><th>Voice</th><th>first word</th><th>note</th></tr>${rows}</table>`;
+}
+
 const PIPELINE = ['Discord voice (DAVE)', 'Utterance capture', 'Whisper STT', 'Gemini (streaming)', 'Sentence split', 'Piper / XTTS TTS', 'Playback'];
 
 const CSS = `
@@ -122,7 +134,7 @@ const CSS = `
 .vb .flow em{color:var(--mute);font-style:normal}
 `;
 
-export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView, conversation?: ConversationView): string {
+export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView, conversation?: ConversationView, voices?: VoiceCompareView): string {
   const done = milestones.reduce((a, m) => a + m.done, 0);
   const total = milestones.reduce((a, m) => a + m.total, 0);
   const ms = milestones
@@ -141,6 +153,7 @@ export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: 
 <section><h2>Plan</h2>${ms}</section>
 ${timeline ? `<section><h2>Hear → think → speak (simulated)</h2>${renderTimeline(timeline)}</section>` : ''}
 ${conversation ? `<section><h2>Group chat (simulated)</h2>${renderConversation(conversation)}</section>` : ''}
+${voices ? `<section><h2>Two voices (simulated)</h2>${renderVoices(voices)}</section>` : ''}
 <section><h2>Pipeline</h2><div class="flow">${flow}</div><p class="muted" style="margin-top:10px">A friend in the call: hears everyone, answers in one or two short sentences, stops when you talk over it.</p></section>
 </main></div>
 `;

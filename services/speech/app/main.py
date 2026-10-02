@@ -17,6 +17,10 @@ class TtsRequest(BaseModel):
     sample: str | None = None
 
 
+class WarmupRequest(BaseModel):
+    sample: str | None = None
+
+
 def _gpu(clone: object) -> dict | None:
     probe = getattr(clone, "gpu", None)
     return probe() if probe else None
@@ -58,6 +62,17 @@ def create_app(
         if req.voice != "fast":
             raise HTTPException(status_code=400, detail="voice must be 'fast' or 'clone'")
         return Response(content=encode_wav(tts.synthesize(text), tts.sample_rate), media_type="audio/wav")
+
+    @app.post("/warmup")
+    def warmup_route(req: WarmupRequest) -> dict:
+        """Preloads the clone voice (called when someone switches to it)."""
+        if clone is None:
+            raise HTTPException(status_code=409, detail="clone voice unavailable")
+        try:
+            clone.warmup(req.sample)
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return {"ok": True}
 
     return app
 

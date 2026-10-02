@@ -145,3 +145,10 @@ def test_xtts_loads_when_vram_is_enough_or_unknown(tmp_path):
     for probe in (lambda: (6000, 8000), lambda: None):
         clone = XttsClone(voices_dir=str(tmp_path), loader=FakeXtts, vram_probe=probe)
         assert clone.synthesize("hello", "me")
+
+
+def test_xtts_warmup_loads_the_model(tmp_path):
+    t, loads = [0.0], []
+    clone, model = make_clone(tmp_path, lambda: t[0], loads)
+    clone.warmup("me")
+    assert clone.loaded and model.calls[0][0] == "Okay."

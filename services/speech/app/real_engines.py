@@ -168,6 +168,10 @@ class XttsClone:
         a = array.array("h", (max(-32768, min(32767, int(s * 32767))) for s in samples))
         return a.tobytes()
 
+    def warmup(self, sample: str | None) -> None:
+        """Loads the model and runs one short phrase, so the first real sentence isn't slow."""
+        self.synthesize("Okay.", sample)
+
     def synthesize_chunks(self, text: str, sample: str | None, chunk_s: float = 0.5):
         """Same audio as `synthesize`, in ~chunk_s pieces (so callers can start playback early)."""
         pcm = self.synthesize(text, sample)

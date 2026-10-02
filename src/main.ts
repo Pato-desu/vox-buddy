@@ -108,6 +108,7 @@ client.on(Events.InteractionCreate, async (i) => {
       const which = i.options.getString('which', true) === 'clone' ? 'clone' : 'fast';
       settings.update({ voice: which });
       await refreshClone();
+      if (which === 'clone') void sidecar.warmup(settings.get().cloneSample); // load the model now, not on the first sentence
       const note = which === 'clone' && !cloneReady ? " The clone voice isn't ready yet, so I'll use the fast voice for now." : '';
       await i.reply({ content: `Voice set to ${which}.${note}`, ephemeral: true });
     } else if (i.commandName === 'voices') {
@@ -118,6 +119,7 @@ client.on(Events.InteractionCreate, async (i) => {
         if (!found?.ok) return void (await i.reply({ content: found ? `${name} is unusable: ${found.problem}` : `No sample called ${name}.\n${formatVoices(samples, settings.get().cloneSample)}`, ephemeral: true }));
         settings.update({ voice: 'clone', cloneSample: name });
         await refreshClone();
+        void sidecar.warmup(name);
         await i.reply({ content: `Cloning ${name}.${cloneReady ? '' : " The clone engine isn't up yet, so I'll use the fast voice meanwhile."}`, ephemeral: true });
       } else {
         await i.reply({ content: formatVoices(samples, settings.get().cloneSample), ephemeral: true });

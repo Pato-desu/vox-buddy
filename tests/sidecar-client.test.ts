@@ -49,6 +49,25 @@ describe('SidecarClient', () => {
     expect([...chunk.pcm]).toEqual([5, 6, 7]);
   });
 
+  it('sends the voice and sample, and surfaces the 409 reason', async () => {
+    let body = '';
+    const url = await fake((q, res) => {
+      q.on('data', (d) => (body += d));
+      q.on('end', () => { res.statusCode = 409; res.end('{"detail":"low vram: 900 MB free"}'); });
+    });
+    const c = new SidecarClient({ baseUrl: url, retryDelayMs: 1 });
+    await expect(c.synthesizeVoice('hi there', 'clone', 'me')).rejects.toThrow(/409.*low vram/);
+    expect(JSON.parse(body)).toEqual({ text: 'hi there', voice: 'clone', sample: 'me' });
+  });
+
+  it('warmup resolves true on success and false on failure, never throwing', async () => {
+    const ok = await fake((_q, res) => res.end('{"ok":true}'));
+    expect(await new SidecarClient({ baseUrl: ok }).warmup('me')).toBe(true);
+    await new Promise<void>((r) => server!.close(() => r()));
+    server = undefined;
+    expect(await new SidecarClient({ baseUrl: 'http://127.0.0.1:1', retries: 0 }).warmup('me')).toBe(false);
+  });
+
   it('retries 5xx then succeeds', async () => {
     let n = 0;
     const url = await fake((_q, res) => {

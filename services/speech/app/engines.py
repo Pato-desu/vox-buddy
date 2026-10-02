@@ -27,6 +27,10 @@ class CloneEngine(Protocol):
         """Returns 16-bit mono PCM. Raises ValueError if the voice cannot be used right now."""
         ...
 
+    def warmup(self, sample: str | None) -> None:
+        """Loads models and runs a short phrase. Raises ValueError like `synthesize`."""
+        ...
+
 
 class FakeStt:
     """Deterministic: describes the audio it was given."""
@@ -54,6 +58,10 @@ class FakeClone:
 
     name = "fake-clone"
     sample_rate = 24000
+    warmed: list = []
+
+    def warmup(self, sample: str | None) -> None:
+        self.warmed.append(sample)
 
     def synthesize(self, text: str, sample: str | None) -> bytes:
         from .audio import sine_pcm
