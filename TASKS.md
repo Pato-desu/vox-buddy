@@ -38,7 +38,7 @@
   - **Done:** Test: pytest — FastAPI app with `/health`, `/stt`, `/tts` over engine interfaces; fake engines return deterministic audio/text; wav encode/decode utilities tested.
 - [ ] **M1.5 Real engines in the sidecar** · 2h
   - **Done:** Test: faster-whisper STT adapter (CUDA→CPU fallback) and Piper TTS adapter implemented behind the interface, with model download script and lazy loading; unit-tested with mocks; real-model run is an Owner check.
-- [ ] **M1.6 Sidecar client in the bot** · 1.5h
+- [x] **M1.6 Sidecar client in the bot** · 1.5h
   - **Done:** Test: typed HTTP client (timeouts, retries, health) against a local fake server in vitest.
 - [ ] **M1.7 Voice join + DAVE receive** · 2h
   - **Done:** Test: `src/voice/connection.ts` wraps @discordjs/voice with DAVE enabled; join/leave/reconnect logic unit-tested against a fake adapter. Owner: `npm run listen-test` prints "heard N seconds from <user>" in a real call.
