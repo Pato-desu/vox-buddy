@@ -63,11 +63,11 @@
   - **Done:** Test: speech start during playback stops it within 300 ms (fake clock), clears the queue, and the interrupter's utterance is handled next; D5 B/C variants are config switches.
 - [x] **M2.6 Multi-speaker queue** · 2h
   - **Done:** Test: overlapping utterances from 3 users are answered in arrival order without overlapping speech or duplicate replies.
-- [ ] **M2.7 `/hush` and `/status`** · 1.5h
+- [x] **M2.7 `/hush` and `/status`** · 1.5h
   - **Done:** Test: hush stops replies but keeps listening; status shows channel, voice, sidecar health, last latency numbers.
-- [ ] **M2.8 Latency metrics** · 1.5h
+- [x] **M2.8 Latency metrics** · 1.5h
   - **Done:** Test: each turn records STT, first-sentence LLM, first-TTS-audio, first-word totals; rolling stats feed `/status` and the build report.
-- [ ] **M2.9 Reply-length enforcement** · 1h
+- [x] **M2.9 Reply-length enforcement** · 1h
   - **Done:** Test: prompt asks for 1–2 sentences; hard cap at 80 words cuts at a sentence boundary.
 **Checkpoint M2:** simulated multi-person conversation timeline in the report; locally, the bot banters, stops when interrupted and never answers itself.
 

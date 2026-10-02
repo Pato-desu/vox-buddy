@@ -7,6 +7,8 @@ export const commandDefs = [
     .setName('persona')
     .setDescription('Reload how the bot talks from persona.md')
     .addSubcommand((s) => s.setName('reload').setDescription('Re-read persona.md')),
+  new SlashCommandBuilder().setName('hush').setDescription('Stop answering (keeps listening). Run again to resume'),
+  new SlashCommandBuilder().setName('status').setDescription('Show channel, voice, speech sidecar health and latency'),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status';

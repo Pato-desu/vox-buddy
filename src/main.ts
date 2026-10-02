@@ -7,7 +7,9 @@ import { commandDefs } from './commands.js';
 import { loadEnv, redact, tuning } from './config.js';
 import { PersonaStore } from './persona.js';
 import { SettingsStore } from './settings.js';
-import { startSession } from './session.js';
+import { LatencyRecorder } from './pipeline/metrics.js';
+import { formatStatus } from './status.js';
+import { startSession, type SessionHandle } from './session.js';
 import { SidecarClient } from './speech/client.js';
 import { ManagedConnection, createDiscordJoiner } from './voice/connection.js';
 import { DiscordSink } from './voice/discord-sink.js';
@@ -38,6 +40,9 @@ const makeLlm = (memory: ConversationMemory) =>
   });
 
 interface Active {
+  session: SessionHandle;
+  latency: LatencyRecorder;
+  channelName: string;
   managed: ManagedConnection;
   sink: DiscordSink;
   channelId: string;
@@ -46,7 +51,7 @@ const active = new Map<string, Active>();
 
 client.once(Events.ClientReady, async (c) => {
   await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
-  console.log(`ready as ${c.user.tag}; /join, /leave, /persona registered`);
+  console.log(`ready as ${c.user.tag}; slash commands registered`);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
@@ -68,8 +73,11 @@ client.on(Events.InteractionCreate, async (i) => {
       const { getVoiceConnection } = await import('@discordjs/voice');
       getVoiceConnection(guild.id)?.subscribe(sink.player);
       const memory = new ConversationMemory(tuning.historyTurns);
-      startSession({
+      const latency = new LatencyRecorder();
+      const session = startSession({
         memory,
+        latency,
+        replyWordHardCap: tuning.replyWordHardCap,
         receiver: adaptReceiver(raw),
         stt: sidecar,
         tts: sidecar,
@@ -85,11 +93,23 @@ client.on(Events.InteractionCreate, async (i) => {
         },
         log: (m) => console.log(m),
       });
-      active.set(guild.id, { managed, sink, channelId: channel.id });
+      active.set(guild.id, { managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
       await i.reply(`Joined ${channel.name}. Just talk.`);
     } else if (i.commandName === 'persona') {
       persona.reload();
       await i.reply({ content: 'Persona reloaded.', ephemeral: true });
+    } else if (i.commandName === 'hush') {
+      const a = active.get(guild.id);
+      if (!a) return void (await i.reply({ content: "I'm not in a voice channel.", ephemeral: true }));
+      a.session.setHushed(!a.session.hushed);
+      await i.reply({ content: a.session.hushed ? 'Hushed. I still listen; /hush again to talk.' : "I'm back.", ephemeral: true });
+    } else if (i.commandName === 'status') {
+      const a = active.get(guild.id);
+      await i.deferReply({ ephemeral: true });
+      const sidecarHealth = await sidecar.health();
+      await i.editReply(
+        formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null }),
+      );
     } else if (i.commandName === 'leave') {
       const a = active.get(guild.id);
       a?.managed.leave();
