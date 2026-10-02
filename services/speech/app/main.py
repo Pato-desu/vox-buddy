@@ -1,4 +1,6 @@
 """Speech sidecar: /health, /stt, /tts over engine interfaces."""
+import os
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -42,4 +44,13 @@ def create_app(stt: SttEngine | None = None, tts: TtsEngine | None = None) -> Fa
     return app
 
 
-app = create_app()
+def _default_app() -> FastAPI:
+    """SPEECH_ENGINES=real uses faster-whisper and Piper (lazy-loaded); anything else uses fakes."""
+    if os.environ.get("SPEECH_ENGINES") == "real":
+        from .real_engines import PiperTts, WhisperStt
+
+        return create_app(WhisperStt(), PiperTts())
+    return create_app()
+
+
+app = _default_app()

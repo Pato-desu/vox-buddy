@@ -1,0 +1,3 @@
+# Real engines (install on the PC that runs the bot). The sidecar's tests do not need these.
+faster-whisper>=1.0
+piper-tts>=1.2

@@ -36,7 +36,7 @@
   - **Done:** Test: streamed deltas become speakable sentences (min 12 chars, handles "Mr.", numbers, ellipses); markdown, emoji, asterisk actions and URLs are stripped; table-driven tests.
 - [x] **M1.4 Speech sidecar skeleton** · 2h
   - **Done:** Test: pytest — FastAPI app with `/health`, `/stt`, `/tts` over engine interfaces; fake engines return deterministic audio/text; wav encode/decode utilities tested.
-- [ ] **M1.5 Real engines in the sidecar** · 2h
+- [x] **M1.5 Real engines in the sidecar** · 2h
   - **Done:** Test: faster-whisper STT adapter (CUDA→CPU fallback) and Piper TTS adapter implemented behind the interface, with model download script and lazy loading; unit-tested with mocks; real-model run is an Owner check.
 - [x] **M1.6 Sidecar client in the bot** · 1.5h
   - **Done:** Test: typed HTTP client (timeouts, retries, health) against a local fake server in vitest.
