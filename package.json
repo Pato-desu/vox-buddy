@@ -14,7 +14,11 @@
     "build": "tsc -p tsconfig.build.json",
     "check": "node scripts/check.mjs",
     "demo": "tsx scripts/demo.ts",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "simulate": "tsx scripts/simulate.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "start": "tsx src/main.ts",
+    "listen-test": "tsx scripts/listen-test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
