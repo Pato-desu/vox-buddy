@@ -294,5 +294,18 @@ client.on(Events.InteractionCreate, async (i) => {
   }
 });
 
+/** Leaves every call and logs out, so Discord drops the bot at once instead of showing it online until the connection times out. */
+let shuttingDown = false;
+function shutdown(signal: string): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`${signal}: leaving calls and logging out`);
+  for (const id of [...active.keys()]) teardown(id);
+  const force = setTimeout(() => process.exit(0), 3000); // never hang on a stuck socket
+  force.unref();
+  void client.destroy().finally(() => process.exit(0));
+}
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK'] as const) process.on(sig, () => shutdown(sig));
+
 process.on('unhandledRejection', (e) => logger.error(`unhandled rejection: ${(e as Error)?.message ?? String(e)}`));
 await client.login(env.discordToken);
