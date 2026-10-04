@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from app.audio import sine_pcm
@@ -15,7 +16,10 @@ class FakeModel:
         self.seen = None
 
     def transcribe(self, audio, **kw):
+        # Like the real faster-whisper: anything but a float32 array is treated as a file path/object and fails.
+        assert isinstance(audio, np.ndarray) and audio.dtype == np.float32, "faster-whisper needs a float32 numpy array"
         self.seen = (len(audio), kw)
+        self.audio = audio
         return [Seg(" hello"), Seg("there ")], None
 
 
@@ -47,6 +51,56 @@ def test_whisper_falls_back_to_cpu_and_loads_lazily():
     assert calls == ["cuda", "cpu"] and stt.device == "cpu"
 
 
+def test_whisper_falls_back_to_cpu_when_cuda_fails_at_inference():
+    # Real failure on a PC without the CUDA 12 runtime: the model loads on cuda, then the lazy segments blow up.
+    class BrokenCudaModel(FakeModel):
+        def transcribe(self, audio, **kw):
+            def segments():
+                raise RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
+                yield  # pragma: no cover
+
+            return segments(), None
+
+    calls = []
+
+    def loader(size, device, compute_type):
+        calls.append(device)
+        return BrokenCudaModel(device) if device == "cuda" else FakeModel(device)
+
+    stt = WhisperStt(loader=loader)
+    assert stt.transcribe(sine_pcm(0.2, 16000), 16000) == "hello there"
+    assert stt.device == "cpu"
+    assert stt.transcribe(sine_pcm(0.2, 16000), 16000) == "hello there"
+    assert calls == ["cuda", "cpu"]  # stays on cpu, no repeated cuda attempts
+
+
+def test_whisper_does_not_swallow_errors_on_cpu():
+    class BrokenModel(FakeModel):
+        def transcribe(self, audio, **kw):
+            raise RuntimeError("boom")
+
+    stt = WhisperStt(loader=lambda size, device, compute_type: BrokenModel(device))
+    with pytest.raises(RuntimeError, match="boom"):
+        stt.transcribe(sine_pcm(0.2, 16000), 16000)
+
+
+def test_nvidia_bin_dirs_finds_only_packages_with_a_bin_folder(tmp_path):
+    from app.real_engines import _nvidia_bin_dirs
+
+    (tmp_path / "cublas" / "bin").mkdir(parents=True)
+    (tmp_path / "cudnn" / "bin").mkdir(parents=True)
+    (tmp_path / "other" / "lib").mkdir(parents=True)
+    found = _nvidia_bin_dirs([str(tmp_path), str(tmp_path / "missing")])
+    assert [d.replace("\\", "/").split("/")[-2] for d in found] == ["cublas", "cudnn"]
+
+
+def test_whisper_gets_samples_scaled_to_unit_range():
+    model = FakeModel("cpu")
+    pcm = np.array([0, 16384, -32768, 32767], dtype=np.int16).tobytes()
+    WhisperStt(loader=lambda *a, **k: model).transcribe(pcm, 16000)
+    assert model.audio.tolist() == [0.0, 0.5, -1.0, 32767 / 32768]
+
+
 def test_whisper_rejects_wrong_rate():
     with pytest.raises(ValueError):
         WhisperStt(loader=lambda *a, **k: FakeModel("cpu")).transcribe(b"\0\0", 48000)
@@ -56,12 +110,16 @@ def test_piper_loads_once_and_joins_chunks():
     class Cfg:
         sample_rate = 16000
 
+    class Chunk:  # piper-tts >= 1.3 yields one AudioChunk per sentence
+        def __init__(self, data):
+            self.audio_int16_bytes = data
+
     class Voice:
         config = Cfg()
 
-        def synthesize_stream_raw(self, text):
-            yield b"ab"
-            yield text.encode()
+        def synthesize(self, text):
+            yield Chunk(b"ab")
+            yield Chunk(text.encode())
 
     loads = []
     tts = PiperTts("v.onnx", loader=lambda p: loads.append(p) or Voice())

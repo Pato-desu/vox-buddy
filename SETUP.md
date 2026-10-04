@@ -28,7 +28,7 @@ $env:SPEECH_ENGINES = "real"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8765
 ```
 Leave this window open. (Without `SPEECH_ENGINES=real` it runs fake engines, which is only useful for tests.)
-For GPU speech-to-text, install the CUDA 12 runtime libraries for faster-whisper; otherwise it falls back to CPU automatically.
+On an NVIDIA GPU, `requirements-real.txt` also installs the CUDA 12 runtime (cuBLAS, cuDNN, about 1 GB) so speech-to-text runs on the GPU; without one it falls back to CPU automatically, about 2 s slower per utterance. The sidecar loads both models in the background at start-up, so the first reply isn't slow.
 
 ## 5. Voices
 `/voice fast` (default) is Piper: quick and offline. To change it, pick another English voice from https://huggingface.co/rhasspy/piper-voices (an `.onnx` plus its `.onnx.json`), put both in `services/speech/models/`, and set `$env:PIPER_VOICE = "models/<name>.onnx"` before starting the sidecar.

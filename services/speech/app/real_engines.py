@@ -6,10 +6,40 @@ import os
 from typing import Any, Callable
 
 
-def _pcm_to_float(pcm: bytes) -> list[float]:
-    a = array.array("h")
-    a.frombytes(pcm)
-    return [s / 32768.0 for s in a]
+def _pcm_to_float(pcm: bytes) -> Any:
+    """16-bit mono PCM as a float32 numpy array in [-1, 1]. faster-whisper reads a plain list as a file path, so it must be an array."""
+    import numpy as np
+
+    return np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+
+
+def _nvidia_bin_dirs(roots: list[str]) -> list[str]:
+    """`bin` folders of the pip-installed CUDA libraries (nvidia-cublas-cu12, nvidia-cudnn-cu12, ...) under `roots`."""
+    dirs: list[str] = []
+    for root in roots:
+        for pkg in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+            b = os.path.join(root, pkg, "bin")
+            if os.path.isdir(b):
+                dirs.append(b)
+    return dirs
+
+
+_dll_dirs_added = False
+
+
+def _add_nvidia_dll_dirs() -> None:
+    """On Windows, lets ctranslate2 find the CUDA 12 DLLs that pip installs under site-packages/nvidia/*/bin."""
+    global _dll_dirs_added
+    if _dll_dirs_added or os.name != "nt":
+        return
+    _dll_dirs_added = True
+    try:
+        import nvidia  # type: ignore  # namespace package shared by the nvidia-*-cu12 wheels
+    except ImportError:
+        return
+    for d in _nvidia_bin_dirs(list(nvidia.__path__)):
+        os.add_dll_directory(d)
+        os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
 
 
 class WhisperStt:
@@ -23,25 +53,41 @@ class WhisperStt:
         self._model: Any = None
         self.device: str | None = None
 
-    def _load(self) -> Any:
-        if self._model is not None:
+    def _load(self, force_cpu: bool = False) -> Any:
+        if self._model is not None and not force_cpu:
             return self._model
         loader = self._loader
         if loader is None:
+            _add_nvidia_dll_dirs()
             from faster_whisper import WhisperModel  # type: ignore
 
             loader = WhisperModel
-        try:
-            self._model, self.device = loader(self.model_size, device="cuda", compute_type="float16"), "cuda"
-        except Exception:  # no CUDA / missing cuDNN: CPU is slower but works
-            self._model, self.device = loader(self.model_size, device="cpu", compute_type="int8"), "cpu"
+        if not force_cpu:
+            try:
+                self._model, self.device = loader(self.model_size, device="cuda", compute_type="float16"), "cuda"
+                return self._model
+            except Exception:  # no CUDA / missing cuDNN: CPU is slower but works
+                pass
+        self._model, self.device = loader(self.model_size, device="cpu", compute_type="int8"), "cpu"
         return self._model
+
+    def _run(self, audio: Any) -> str:
+        segments, _info = self._load().transcribe(audio, language="en", vad_filter=False)
+        return " ".join(s.text.strip() for s in segments).strip()  # segments is lazy: inference happens here
 
     def transcribe(self, pcm: bytes, sample_rate: int) -> str:
         if sample_rate != 16000:
             raise ValueError("whisper expects 16 kHz audio")
-        segments, _info = self._load().transcribe(_pcm_to_float(pcm), language="en", vad_filter=False)
-        return " ".join(s.text.strip() for s in segments).strip()
+        audio = _pcm_to_float(pcm)
+        try:
+            return self._run(audio)
+        except Exception:
+            if self.device != "cuda":
+                raise
+            # The model loads fine on CUDA but the first inference fails when the CUDA 12 runtime
+            # libraries (e.g. cublas64_12.dll) are missing, so fall back here and stay on CPU.
+            self._load(force_cpu=True)
+            return self._run(audio)
 
 
 class PiperTts:
@@ -68,7 +114,8 @@ class PiperTts:
 
     def synthesize(self, text: str) -> bytes:
         voice = self._load()
-        return b"".join(voice.synthesize_stream_raw(text))
+        # piper-tts >= 1.3: synthesize() yields one AudioChunk per sentence.
+        return b"".join(chunk.audio_int16_bytes for chunk in voice.synthesize(text))
 
 
 class LowVramError(ValueError):

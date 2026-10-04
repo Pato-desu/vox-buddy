@@ -77,6 +77,15 @@ def create_app(
     return app
 
 
+def warm_up(stt: SttEngine, tts: TtsEngine) -> None:
+    """Loads both models with one tiny request each, so the first real utterance isn't slow. Never raises."""
+    try:
+        stt.transcribe(b"\0\0" * 4800, 16000)  # 0.3 s of silence
+        tts.synthesize("Okay.")
+    except Exception as e:  # the first real request will load the models instead
+        print(f"warm-up failed: {e}")
+
+
 def _default_app() -> FastAPI:
     """SPEECH_ENGINES=real uses faster-whisper and Piper (lazy-loaded); anything else uses fakes."""
     if os.environ.get("SPEECH_ENGINES") == "real":
@@ -96,7 +105,9 @@ def _default_app() -> FastAPI:
                 clone.unload_if_idle()
 
         threading.Thread(target=reaper, daemon=True).start()
-        return create_app(WhisperStt(), PiperTts(), clone)
+        stt, tts = WhisperStt(), PiperTts()
+        threading.Thread(target=warm_up, args=(stt, tts), daemon=True).start()
+        return create_app(stt, tts, clone)
     return create_app()
 
 
