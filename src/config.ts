@@ -20,6 +20,9 @@ export interface Tuning {
   latencyBudgetMs: { stt: number; firstLlmSentence: number; firstTtsAudio: number; firstWord: number };
   autoLeaveAloneS: number;
   botName: string;
+  /** Saying this in a short sentence makes the bot say goodbye and leave the channel. */
+  leavePhrase: string;
+  leaveFarewell: string;
 }
 
 export const tuning: Tuning = {
@@ -40,6 +43,8 @@ export const tuning: Tuning = {
   latencyBudgetMs: { stt: 600, firstLlmSentence: 700, firstTtsAudio: 400, firstWord: 2000 },
   autoLeaveAloneS: 300,
   botName: 'Buddy',
+  leavePhrase: 'parrot leave',
+  leaveFarewell: 'Alright, later!',
 };
 
 export interface Env {

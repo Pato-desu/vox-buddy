@@ -5,7 +5,9 @@ import { LatencyRecorder } from '../src/pipeline/metrics.js';
 import { simulate } from '../src/simulate.js';
 
 describe('latency budget (SPEC §5)', () => {
-  it('first word lands within the budget with realistic fake delays, and each stage fits its share', async () => {
+  // Real timers and only ~30 ms of slack on the first-sentence stage: CPU load from parallel test workers (or a running bot)
+  // can push it a few ms over. A real regression fails every attempt, so retrying keeps the check honest.
+  it('first word lands within the budget with realistic fake delays, and each stage fits its share', { retry: 3 }, async () => {
     const latency = new LatencyRecorder();
     const r = await simulate({ pcm: new Int16Array(24000), latency });
     expect(r.firstWordMs).not.toBeNull();

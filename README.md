@@ -22,6 +22,8 @@ Follow SETUP.md (Windows, from zero), then `.\start.ps1` starts the speech sidec
 | `/mirror on\|off` | Post what it heard and said to this text channel (off by default; needs Manage Channels; resets on restart) |
 | `/autojoin here\|off` | Join your current voice channel automatically at start (needs Manage Channels) |
 
+Spoken: say "parrot leave" (in a short sentence) and the bot says goodbye and leaves; `/join` brings it back. The phrase and the goodbye are `leavePhrase` and `leaveFarewell` in `src/config.ts`. It is not heard while the bot is hushed, so use `/leave` then. If you remove the bot with Discord's Disconnect, it stays out too.
+
 ## Files you can edit
 - `persona.md`: the bot's personality (system prompt).
 - `voices/*.wav`: 5-30 s clean samples for the clone voice.

@@ -1,5 +1,5 @@
 import type { Llm, Player, Stt, Tts, Utterance } from './types.js';
-import { isJunkTranscript } from './policy.js';
+import { isLeaveCommand, junkReason } from './policy.js';
 import { ReplyLimiter } from './length.js';
 import { SentenceSplitter } from './sentences.js';
 
@@ -13,15 +13,19 @@ export interface OrchestratorDeps {
   expectingAnswer?: () => boolean;
   /** Hard cap on reply length in words (default: none). */
   replyWordHardCap?: number;
+  /** A spoken command to leave: the turn says `farewell` instead of asking the LLM, and reports `leave: true`. */
+  leave?: { phrase: string; farewell: string };
   /** Optional timeline hook: called with an event name and the sentence index where relevant. */
   trace?: (event: TraceEvent, detail?: string) => void;
 }
 
-export type TraceEvent = 'heard' | 'llm-first-delta' | 'llm-done' | 'sentence' | 'audio-ready' | 'audio-queued';
+export type TraceEvent = 'heard' | 'skipped' | 'llm-first-delta' | 'llm-done' | 'sentence' | 'audio-ready' | 'audio-queued';
 
 export interface TurnResult {
   heard: string;
   sentences: string[];
+  /** Set when the person asked the bot to leave; the caller leaves once the goodbye has played. */
+  leave?: true;
 }
 
 /** Drives one turn: utterance → text → streamed sentences → audio chunks, in order. */
@@ -33,7 +37,26 @@ export class Orchestrator {
     const deps = this.deps;
     const heard = (await stt.transcribe(utt.pcm, 16000)).trim();
     deps.trace?.('heard', heard);
-    if (isJunkTranscript(heard, { expectingAnswer: deps.expectingAnswer?.() })) return null;
+    if (deps.leave && isLeaveCommand(heard, deps.leave.phrase)) {
+      // Say goodbye in the normal voice. If the voice is down, the command still works and the bot just leaves quietly.
+      const { farewell } = deps.leave;
+      try {
+        const chunk = await tts.synthesize(farewell, signal);
+        if (!signal?.aborted) {
+          deps.trace?.('sentence', farewell);
+          player.enqueue(chunk);
+          deps.trace?.('audio-queued', farewell);
+        }
+      } catch {
+        /* no voice: leave without a goodbye */
+      }
+      return { heard, sentences: [farewell], leave: true };
+    }
+    const junk = junkReason(heard, { expectingAnswer: deps.expectingAnswer?.() });
+    if (junk) {
+      deps.trace?.('skipped', junk);
+      return null;
+    }
 
     const splitter = new SentenceSplitter(this.deps.minSentenceChars);
     const sentences: string[] = [];

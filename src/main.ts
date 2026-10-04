@@ -159,6 +159,8 @@ function joinVoice(guild: Guild, channel: VoiceBasedChannel): void {
     botTurnGapMs: tuning.botTurnGapMs,
     hearingErrorLine: "Sorry, I can't hear properly right now.",
     bargeIn: tuning.bargeInMode,
+    leave: { phrase: tuning.leavePhrase, farewell: tuning.leaveFarewell },
+    onLeave: () => teardown(guild.id),
     resolveSpeaker: (id) => {
       const m = guild.members.cache.get(id);
       return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;

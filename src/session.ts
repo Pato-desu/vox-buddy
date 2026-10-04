@@ -29,6 +29,10 @@ export interface SessionDeps {
   /** Spoken (once per cooldown) when speech-to-text fails but the voice still works. */
   hearingErrorLine?: string;
   log?: (msg: string) => void;
+  /** The spoken command that makes the bot say goodbye and leave (e.g. "parrot leave"). */
+  leave?: { phrase: string; farewell: string };
+  /** Called after the goodbye has finished playing. */
+  onLeave?: () => void;
   /** Called after each finished reply (for the optional transcript mirror). */
   onTurn?: (speaker: string, heard: string, said: string) => void;
   /** Transcripts go here only; wire it to a debug-level logger. */
@@ -70,9 +74,10 @@ export function startSession(d: SessionDeps): SessionHandle {
     trace: (ev, detail) => {
       orchTrace(ev);
       d.latency?.trace(ev);
-      if (ev === 'heard') d.debug?.(`heard: ${detail ?? ''}`);
+      if (ev === 'skipped') d.log?.(`skipped an utterance (${detail ?? 'junk'}): too short or just filler, so no reply`);
+      else if (ev === 'heard') d.debug?.(`heard: ${detail ?? ''}`);
       else if (ev === 'sentence') d.debug?.(`said: ${detail ?? ''}`);
-    }, replyWordHardCap: d.replyWordHardCap });
+    }, replyWordHardCap: d.replyWordHardCap, ...(d.leave && { leave: d.leave }) });
   const onUtterance = (u: Utterance): void => {
     chain = chain
       .then(async () => {
@@ -102,6 +107,12 @@ export function startSession(d: SessionDeps): SessionHandle {
         } finally {
           replying = false;
           if (current === ctl) current = null;
+        }
+        if (r?.leave) {
+          d.log?.('asked to leave by voice');
+          await d.player.whenIdle?.(); // let the goodbye finish first
+          d.onLeave?.();
+          return;
         }
         if (r && !ctl.signal.aborted) {
           await d.player.whenIdle?.(); // the gap runs from the end of the spoken reply, not from when it was queued
