@@ -6,6 +6,8 @@ import os
 import threading
 from typing import Any, Callable
 
+from .lang import detect_language
+
 
 def _pcm_to_float(pcm: bytes) -> Any:
     """16-bit mono PCM as a float32 numpy array in [-1, 1]. faster-whisper reads a plain list as a file path, so it must be an array."""
@@ -216,7 +218,7 @@ class XttsClone:
         with self._lock:
             model = self._load()
             try:
-                samples = model.tts(text=text, speaker_wav=path, language="en")
+                samples = model.tts(text=text, speaker_wav=path, language=detect_language(text))
             finally:
                 self._last_used = self._clock()
         a = array.array("h", (max(-32768, min(32767, int(s * 32767))) for s in samples))
