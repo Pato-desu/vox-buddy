@@ -32,9 +32,9 @@ describe('secrets hygiene', () => {
   });
 
   it('.env is git-ignored and never tracked; .env.example holds no values', () => {
-    expect(readFileSync('.gitignore', 'utf8').split('\n')).toContain('.env');
+    expect(readFileSync('.gitignore', 'utf8').split(/\r?\n/)).toContain('.env');
     expect(trackedFiles()).not.toContain('.env');
-    for (const line of readFileSync('.env.example', 'utf8').split('\n')) {
+    for (const line of readFileSync('.env.example', 'utf8').split(/\r?\n/)) {
       if (/^[A-Z_]+=/.test(line)) expect(line, line).toMatch(/^[A-Z_]+=$|^[A-Z_]+=https?:\/\/127\.0\.0\.1/);
     }
   });

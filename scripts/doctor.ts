@@ -44,4 +44,5 @@ if (key) {
 
 for (const r of rows) console.log(`${r.ok ? 'OK  ' : 'FAIL'}  ${r.name}${r.ok || !r.hint ? '' : `  ->  ${r.hint}`}`);
 console.log('\nDiscord intents: in the Developer Portal enable nothing privileged; the bot needs Guilds and GuildVoiceStates only.');
-process.exit(rows.every((r) => r.ok) ? 0 : 1);
+// Set the code instead of calling process.exit(): on Node 24 for Windows, exiting while fetch handles are closing aborts with a libuv assertion.
+process.exitCode = rows.every((r) => r.ok) ? 0 : 1;

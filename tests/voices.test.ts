@@ -20,7 +20,7 @@ function wav(seconds: number, opts: { rate?: number; channels?: number; bits?: n
   return b;
 }
 
-const io = (files: Record<string, Buffer>): VoicesIo => ({ list: () => Object.keys(files), read: (p) => files[p.split('/').pop()!]! });
+const io = (files: Record<string, Buffer>): VoicesIo => ({ list: () => Object.keys(files), read: (p) => files[p.split(/[\\/]/).pop()!]! });
 
 describe('inspectWav', () => {
   it('measures duration across rates and channels', () => {

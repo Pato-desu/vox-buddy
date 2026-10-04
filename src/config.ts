@@ -35,7 +35,7 @@ export const tuning: Tuning = {
   bargeInMode: 'stop',
   cloneIdleUnloadS: 600,
   ttsSentenceMinChars: 12,
-  geminiModel: 'gemini-2.5-flash',
+  geminiModel: 'gemini-3.5-flash-lite', // gemini-2.5-flash is closed to new users (404); the bigger 3.x flash models were too slow to first word
   geminiTemperature: 0.9,
   latencyBudgetMs: { stt: 600, firstLlmSentence: 700, firstTtsAudio: 400, firstWord: 2000 },
   autoLeaveAloneS: 300,
