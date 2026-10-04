@@ -12,7 +12,7 @@ export const commandDefs = [
     .setDescription('Stop answering (keeps listening). `/hush off` resumes')
     .addStringOption((o) => o.setName('state').setDescription('on, off, or leave empty to toggle').addChoices({ name: 'on', value: 'on' }, { name: 'off', value: 'off' })),
   new SlashCommandBuilder().setName('status').setDescription('Show channel, voice, speech sidecar health and latency'),
-  new SlashCommandBuilder().setName('usage').setDescription('Show how many Gemini tokens the bot has used: this run, today, last minute'),
+  new SlashCommandBuilder().setName('usage').setDescription('Show Gemini requests used today out of the daily limit'),
   new SlashCommandBuilder()
     .setName('voice')
     .setDescription('Pick the bot voice')

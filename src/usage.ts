@@ -32,10 +32,11 @@ const add = (t: UsageTotals, u: TokenUsage): void => {
   t.thinkingTokens += u.thinkingTokens;
 };
 
-/** Local calendar day as YYYY-MM-DD. */
+const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** Calendar day as YYYY-MM-DD in US Pacific time: Google resets the daily request limit at midnight Pacific. */
 export function dayKey(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return dayFormat.format(new Date(ms));
 }
 
 /** Normalises whatever was stored: wrong shapes and negative or non-numeric counts become a fresh day. */
@@ -91,10 +92,21 @@ const describe = (t: UsageTotals): string => {
   return `${num(t.requests)} repl${t.requests === 1 ? 'y' : 'ies'}, ${num(tokens(t))} tokens (${num(t.promptTokens)} in, ${num(out)} out${think})`;
 };
 
-/** The text behind /usage. */
-export function formatUsage(s: UsageSnapshot, model: string): string {
-  const lines = [`Gemini model: ${model}`, `This run: ${describe(s.run)}`, `Today (local time): ${describe(s.today)}`, `Last minute: ${describe(s.lastMinute)}`];
-  if (s.run.requests > 0) lines.push(`Average reply this run: about ${num(Math.round(tokens(s.run) / s.run.requests))} tokens`);
-  lines.push('Counts only what this bot sent. Google gives no way to read a remaining balance with an API key; limits and totals for the whole key are at https://aistudio.google.com/usage');
+export interface UsageLimits {
+  requestsPerDay: number;
+  requestsPerMinute: number;
+}
+
+/** The text behind /usage. Requests per day is the limit that can actually run out, so it comes first. */
+export function formatUsage(s: UsageSnapshot, model: string, limits: UsageLimits): string {
+  const left = Math.max(0, limits.requestsPerDay - s.today.requests);
+  const lines = [
+    `Gemini model: ${model}`,
+    `Requests today: ${num(s.today.requests)} / ${num(limits.requestsPerDay)} (${num(left)} left; resets at midnight Pacific time)`,
+    `Last minute: ${num(s.lastMinute.requests)} / ${num(limits.requestsPerMinute)}`,
+    `Tokens today: ${num(tokens(s.today))} (${num(s.today.promptTokens)} in, ${num(s.today.outputTokens + s.today.thinkingTokens)} out)`,
+    `This run: ${describe(s.run)}`,
+  ];
+  lines.push('Counts only what this bot sent; other uses of the same key are not included. Totals for the whole key: https://aistudio.google.com/usage');
   return lines.join('\n');
 }

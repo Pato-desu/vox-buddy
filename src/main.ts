@@ -242,7 +242,7 @@ client.on(Events.InteractionCreate, async (i) => {
         formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
       );
     } else if (i.commandName === 'usage') {
-      await i.reply({ content: formatUsage(usage.snapshot(), tuning.geminiModel), ephemeral: true });
+      await i.reply({ content: formatUsage(usage.snapshot(), tuning.geminiModel, { requestsPerDay: tuning.geminiRequestsPerDay, requestsPerMinute: tuning.geminiRequestsPerMinute }), ephemeral: true });
     } else if (i.commandName === 'leave') {
       const left = teardown(guild.id);
       await i.reply({ content: left ? 'Bye!' : "I'm not in a voice channel.", ephemeral: !left });

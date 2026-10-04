@@ -17,6 +17,9 @@ export interface Tuning {
   ttsSentenceMinChars: number;
   geminiModel: string;
   geminiTemperature: number;
+  /** Free-tier limits of the model above (see aistudio.google.com/usage); /usage reports against them. */
+  geminiRequestsPerDay: number;
+  geminiRequestsPerMinute: number;
   latencyBudgetMs: { stt: number; firstLlmSentence: number; firstTtsAudio: number; firstWord: number };
   autoLeaveAloneS: number;
   botName: string;
@@ -40,6 +43,8 @@ export const tuning: Tuning = {
   ttsSentenceMinChars: 12,
   geminiModel: 'gemini-3.5-flash-lite', // gemini-2.5-flash is closed to new users (404); the bigger 3.x flash models were too slow to first word
   geminiTemperature: 0.9,
+  geminiRequestsPerDay: 500,
+  geminiRequestsPerMinute: 15,
   latencyBudgetMs: { stt: 600, firstLlmSentence: 700, firstTtsAudio: 400, firstWord: 2000 },
   autoLeaveAloneS: 300,
   botName: 'Buddy',
