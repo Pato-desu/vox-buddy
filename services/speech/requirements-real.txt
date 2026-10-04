@@ -6,3 +6,7 @@ nvidia-cublas-cu12
 nvidia-cudnn-cu12
 # Voice cloning (M3). Needs a CUDA GPU for good speed; the first run downloads ~2 GB of model.
 coqui-tts>=0.24
+# coqui-tts needs PyTorch, which pip does not pull in with the CUDA build. Install it first from the CUDA index:
+#   pip install --no-cache-dir torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
+# and keep transformers below 5 (coqui-tts imports a helper that transformers 5 removed).
+transformers>=4.57,<5
