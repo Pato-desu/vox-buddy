@@ -33,6 +33,56 @@ export interface ConversationView {
   latency: RollingSummary;
 }
 
+/** Tiny markdown renderer for SETUP.md: headings, lists, fenced code, paragraphs, `inline code`. Everything is escaped. */
+export function markdownToHtml(md: string): string {
+  const inline = (t: string): string => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out: string[] = [];
+  let listTag: 'ol' | 'ul' | null = null;
+  let code: string[] | null = null;
+  const closeList = (): void => {
+    if (listTag) out.push(`</${listTag}>`);
+    listTag = null;
+  };
+  for (const line of md.split('\n')) {
+    if (line.startsWith('```')) {
+      if (code) {
+        out.push(`<pre>${esc(code.join('\n'))}</pre>`);
+        code = null;
+      } else {
+        closeList();
+        code = [];
+      }
+      continue;
+    }
+    if (code) {
+      code.push(line);
+      continue;
+    }
+    const h = /^(#{1,3}) (.*)$/.exec(line);
+    const ol = /^\d+\. (.*)$/.exec(line);
+    const ul = /^- (.*)$/.exec(line);
+    if (h) {
+      closeList();
+      out.push(`<h3>${inline(h[2] ?? '')}</h3>`);
+    } else if (ol || ul) {
+      const tag = ol ? 'ol' : 'ul';
+      if (listTag !== tag) {
+        closeList();
+        out.push(`<${tag}>`);
+        listTag = tag;
+      }
+      out.push(`<li>${inline((ol ?? ul)?.[1] ?? '')}</li>`);
+    } else if (line.trim() === '') {
+      closeList();
+    } else {
+      closeList();
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  closeList();
+  return out.join('\n');
+}
+
 export const MAX_REPORT_BYTES = 15 * 1024 * 1024;
 
 const esc = (s: string): string =>
@@ -129,12 +179,18 @@ const CSS = `
 .vb table.lat{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
 .vb .lat th,.vb .lat td{text-align:right;padding:4px 6px;border-bottom:1px solid #2a2f3a}
 .vb .lat th:first-child,.vb .lat td:first-child{text-align:left}
+.vb details>summary{cursor:pointer;color:var(--acc);font-size:18px}
+.vb .setup h3{font-size:16px;margin:16px 0 6px}
+.vb .setup p,.vb .setup li{font-size:15px}
+.vb pre{background:#0b0d11;border-radius:8px;padding:10px 12px;overflow-x:auto;font-size:13px;margin:8px 0}
+.vb code{background:#222736;border-radius:4px;padding:1px 5px;font-size:.92em}
+.vb pre code{background:none;padding:0}
 .vb .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .vb .flow span{background:#222736;border-radius:8px;padding:4px 10px;font-size:14px}
 .vb .flow em{color:var(--mute);font-style:normal}
 `;
 
-export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView, conversation?: ConversationView, voices?: VoiceCompareView): string {
+export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: TimelineView, conversation?: ConversationView, voices?: VoiceCompareView, setupMd?: string): string {
   const done = milestones.reduce((a, m) => a + m.done, 0);
   const total = milestones.reduce((a, m) => a + m.total, 0);
   const ms = milestones
@@ -154,6 +210,7 @@ export function renderReport(info: DevInfo, milestones: Milestone[], timeline?: 
 ${timeline ? `<section><h2>Hear → think → speak (simulated)</h2>${renderTimeline(timeline)}</section>` : ''}
 ${conversation ? `<section><h2>Group chat (simulated)</h2>${renderConversation(conversation)}</section>` : ''}
 ${voices ? `<section><h2>Two voices (simulated)</h2>${renderVoices(voices)}</section>` : ''}
+${setupMd ? `<section class="setup"><details><summary>How to try it on your PC (Windows)</summary>${markdownToHtml(setupMd)}</details></section>` : ''}
 <section><h2>Pipeline</h2><div class="flow">${flow}</div><p class="muted" style="margin-top:10px">A friend in the call: hears everyone, answers in one or two short sentences, stops when you talk over it.</p></section>
 </main></div>
 `;

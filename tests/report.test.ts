@@ -44,3 +44,22 @@ describe('timeline', () => {
     expect(html).toContain('Playing');
   });
 });
+
+import { markdownToHtml } from '../src/report.js';
+
+describe('markdownToHtml', () => {
+  it('renders headings, lists, code and escapes html', () => {
+    const html = markdownToHtml('## Step <1>\n1. Run `npm ci`\n2. Next\n\n```powershell\npython -m venv .venv\n```\ntext');
+    expect(html).toContain('<h3>Step &lt;1&gt;</h3>');
+    expect(html).toContain('<ol>');
+    expect(html).toContain('<code>npm ci</code>');
+    expect(html).toContain('<pre>python -m venv .venv</pre>');
+    expect(html).toContain('<p>text</p>');
+    expect(html).not.toContain('<1>');
+  });
+
+  it('puts the setup guide in the report without external requests', () => {
+    const html = renderReport({ build: 1, date: 'd', whatsNew: [], whatToTry: [], decisionsWaiting: [] }, [], undefined, undefined, undefined, '## A\nsee https://x.y');
+    expect(html).toContain('How to try it on your PC');
+  });
+});

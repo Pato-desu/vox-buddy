@@ -35,7 +35,7 @@ const html = renderReport(info, parseMilestones(readFileSync('TASKS.md', 'utf8')
   firstWordMs: sim.firstWordMs,
   budgetMs: tuning.latencyBudgetMs.firstWord,
   events: sim.timeline,
-}, { turns, latency: latency.summary() }, voices);
+}, { turns, latency: latency.summary() }, voices, readFileSync('SETUP.md', 'utf8'));
 const bytes = Buffer.byteLength(html);
 if (bytes > MAX_REPORT_BYTES) throw new Error(`demo too large: ${bytes} bytes`);
 mkdirSync('dist', { recursive: true });
