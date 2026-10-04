@@ -159,7 +159,7 @@ class XttsClone:
         clock: Callable[[], float] | None = None,
         on_unload: Callable[[], None] | None = None,
         vram_probe: Callable[[], tuple[int, int] | None] = nvidia_smi_memory,
-        min_free_mb: int = 4000,
+        min_free_mb: int = 3000,  # measured on an RTX 3060 Ti: XTTS-v2 peaks near 2.1 GB, plus CUDA overhead
     ) -> None:
         import time
 

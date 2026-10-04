@@ -33,7 +33,7 @@ On an NVIDIA GPU, `requirements-real.txt` also installs the CUDA 12 runtime (cuB
 ## 5. Voices
 `/voice fast` (default) is Piper: quick and offline. To change it, pick another English voice from https://huggingface.co/rhasspy/piper-voices (an `.onnx` plus its `.onnx.json`), put both in `services/speech/models/`, and set `$env:PIPER_VOICE = "models/<name>.onnx"` before starting the sidecar.
 
-`/voice clone` speaks in a voice you provide (Coqui XTTS-v2, needs an NVIDIA GPU with about 4 GB free; the first use downloads roughly 2 GB):
+`/voice clone` speaks in a voice you provide (Coqui XTTS-v2, needs an NVIDIA GPU with about 3 GB free (it uses about 2 GB; close Chrome or Brave if the bot says it is low on GPU memory); the first use downloads roughly 2 GB):
 1. Record 10-20 seconds of one person talking naturally, in a quiet room, no music or other voices. Anything from 5 to 30 seconds works.
 2. Save it as a 16-bit PCM `.wav` (Audacity: Export as WAV, "Signed 16-bit PCM") in the `voices/` folder at the repo root, e.g. `voices/me.wav`. Only clone voices you have the right to use.
 3. In Discord: `/voices list` shows each sample and why one is unusable, `/voices use me` selects it and switches to the clone voice. `/voice fast` switches back.
