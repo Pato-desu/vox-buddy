@@ -12,6 +12,12 @@ export const commandDefs = [
     .setDescription('Stop answering (keeps listening). `/hush off` resumes')
     .addStringOption((o) => o.setName('state').setDescription('on, off, or leave empty to toggle').addChoices({ name: 'on', value: 'on' }, { name: 'off', value: 'off' })),
   new SlashCommandBuilder().setName('status').setDescription('Show channel, voice, speech sidecar health and latency'),
+  new SlashCommandBuilder()
+    .setName('mode')
+    .setDescription('classic = local speech + Gemini text; live = Gemini Live in the cloud hears and speaks')
+    .addStringOption((o) =>
+      o.setName('which').setDescription('live sends call audio to Google; classic keeps audio on this PC').setRequired(true).addChoices({ name: 'classic', value: 'classic' }, { name: 'live', value: 'live' }),
+    ),
   new SlashCommandBuilder().setName('usage').setDescription('Show Gemini requests used today out of the daily limit'),
   new SlashCommandBuilder()
     .setName('voice')
@@ -38,4 +44,4 @@ export const commandDefs = [
     .addSubcommand((s) => s.setName('off').setDescription('Do not auto-join')),
 ].map((c) => c.toJSON());
 
-export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'usage' | 'voice' | 'voices' | 'mirror' | 'autojoin';
+export type CommandName = 'join' | 'leave' | 'persona' | 'hush' | 'status' | 'usage' | 'mode' | 'voice' | 'voices' | 'mirror' | 'autojoin';

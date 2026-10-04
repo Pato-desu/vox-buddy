@@ -64,7 +64,7 @@ F12 **Simulation.** `npm run simulate -- file.wav` runs the whole pipeline (STT 
 
 ## 9. Saving, settings
 - No database. `settings.json` (voice, hush, auto-join channel, persona path) persisted next to the bot. Conversation memory is in RAM and cleared on `/leave`.
-- Privacy: audio is processed in memory and never written to disk, except in `simulate` or debug mode. Transcripts are logged only at debug level. The Gemini API receives transcript text only, never audio.
+- Privacy: audio is processed in memory and never written to disk, except in `simulate` or debug mode. Transcripts are logged only at debug level. In classic mode the Gemini API receives transcript text only, never audio. Exception: the optional live mode [D13] streams the call's audio to Gemini Live; it is opt-in per `/mode live`.
 
 ## 10. Tech
 - **Bot:** TypeScript on Node 24, discord.js v14 + @discordjs/voice. This version supports the DAVE end-to-end voice protocol, which the old Python attempt could not. Voice receive uses opus decoding via prism-media / @discordjs/opus. `@google/genai` for Gemini. vitest for tests.

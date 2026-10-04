@@ -4,7 +4,9 @@ import type { Settings } from './settings.js';
 export interface StatusInfo {
   channelName: string | null;
   hushed: boolean;
-  settings: Pick<Settings, 'voice' | 'cloneSample'>;
+  settings: Pick<Settings, 'voice' | 'cloneSample'> & Partial<Pick<Settings, 'mode'>>;
+  /** The Live model, shown when the mode is live. */
+  liveModel?: string;
   sidecar: { ok: boolean; stt?: string | undefined; tts?: string | undefined };
   latency: RollingSummary;
   /** Set by the sidecar when it has an NVIDIA GPU. */
@@ -15,6 +17,9 @@ export interface StatusInfo {
 
 /** The text behind /status: short lines, no secrets. */
 export function formatStatus(s: StatusInfo): string {
+  if (s.settings.mode === 'live') {
+    return [`Channel: ${s.channelName ?? 'not in a voice channel'}${s.hushed ? ' (hushed)' : ''}`, `Mode: live (${s.liveModel ?? 'Gemini Live'}): call audio goes to Google, no local speech sidecar used`].join('\n');
+  }
   const lines = [
     `Channel: ${s.channelName ?? 'not in a voice channel'}${s.hushed ? ' (hushed)' : ''}`,
     `Voice: ${s.settings.voice}${s.settings.voice === 'clone' && s.settings.cloneSample ? ` (${s.settings.cloneSample})` : ''}${s.effectiveVoice && s.effectiveVoice !== s.settings.voice ? `, but using ${s.effectiveVoice} right now` : ''}`,

@@ -48,5 +48,8 @@ In a second terminal from the repo root:
 2. Optional receive-only test: join a voice channel, run `npm run listen-test`, speak; it prints "heard N seconds from <you>".
 3. `npm start`, then in Discord join a voice channel and type `/join`. Talk. `/leave` ends it.
 
+## Live mode (all-cloud, optional)
+No sidecar, GPU or voice files needed. Run `/mode live` in Discord (it rejoins your channel), and Gemini Live (`liveModel` in `src/config.ts`, default `gemini-3.8-live`; `gemini-3.8-live-extended-thinking` reasons more but answers slower) hears the call and answers in its own voice (`liveVoice`, default Kore). It uses the same `GOOGLE_API_KEY`. The call's audio goes to Google, so it is off until someone asks for it; `/mode classic` switches back. `/voice`, voice cloning and `/usage` are classic-mode features.
+
 ## Try it without Discord
 `npm run simulate` runs the whole pipeline on a generated test sound with fake engines and writes `dist/sim/reply-*.wav`. Add `--real` to use the sidecar and Gemini.

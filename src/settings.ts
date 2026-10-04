@@ -3,9 +3,14 @@ import { normalizeDayUsage, type DayUsage } from './usage.js';
 
 export type VoiceKind = 'fast' | 'clone';
 
+/** classic = local speech + Gemini text; live = one cloud Gemini Live session hears and speaks (audio leaves the PC). */
+export type Mode = 'classic' | 'live';
+
 /** User-changeable settings persisted in settings.json (git-ignored). */
 export interface Settings {
   voice: VoiceKind;
+  /** Which pipeline runs on the next /join (see Mode). */
+  mode: Mode;
   /** Name of the selected clone sample in voices/, if any. */
   cloneSample: string | null;
   /** Voice channel to join on start, if any (D8). */
@@ -18,7 +23,7 @@ export interface Settings {
   usage: DayUsage | null;
 }
 
-export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null, hushed: false, usage: null };
+export const defaultSettings: Settings = { voice: 'fast', mode: 'classic', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null, hushed: false, usage: null };
 
 export interface SettingsIo {
   read: (path: string) => string;
@@ -38,6 +43,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
   return {
     voice: o.voice === 'clone' ? 'clone' : 'fast',
+    mode: o.mode === 'live' ? 'live' : 'classic',
     cloneSample: str(o.cloneSample),
     autoJoinChannelId: str(o.autoJoinChannelId),
     mirrorChannelId: str(o.mirrorChannelId),

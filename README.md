@@ -16,6 +16,7 @@ Follow SETUP.md (Windows, from zero), then `.\start.ps1` starts the speech sidec
 | `/hush [on\|off]` | Stop answering but keep listening; `/hush off` resumes (no argument toggles) |
 | `/status` | Channel, voice in use, sidecar health, GPU memory, latency |
 | `/usage` | Gemini requests the bot used today out of the daily limit (500), plus last minute and tokens (counts only this bot's calls; Google shows the real quota at aistudio.google.com/usage) |
+| `/mode classic\|live` | `classic` (default): speech on this PC, only text goes to Gemini. `live`: one Gemini Live session in the cloud (`gemini-3.8-live`) hears and speaks, so the call's audio goes to Google. Rejoins your channel to switch; `/voice` and the sidecar are not used in live mode |
 | `/voice fast\|clone` | Quick offline Piper voice, or your cloned voice |
 | `/voices list\|use <name>` | Show or pick a clone sample from `voices/` |
 | `/persona reload` | Re-read `persona.md` (how the bot talks) |
@@ -35,4 +36,4 @@ Spoken: say "parrot leave" (in a short sentence) and the bot says goodbye and le
 `npm run check` (typecheck, lint, tests incl. sidecar pytest, build) · `npm run demo` (build report page) · `npm run smoke` (headless check of the report) · `npm run simulate` (whole pipeline with fake engines) · `npm run doctor` (checks your setup) · `npm run listen-test` (receive-only test in a real call).
 
 ## Privacy
-Audio is processed in memory and never saved. Only transcript text goes to Gemini. Logs redact keys, and what people said appears in logs only at `LOG_LEVEL=debug`.
+Audio is processed in memory and never saved. In the default classic mode only transcript text goes to Gemini. In `/mode live` the call's audio is streamed to Google's Gemini Live API (nothing is recorded by the bot). Logs redact keys, and what people said appears in logs only at `LOG_LEVEL=debug`.

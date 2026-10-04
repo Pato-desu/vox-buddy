@@ -20,6 +20,10 @@ export interface Tuning {
   /** Free-tier limits of the model above (see aistudio.google.com/usage); /usage reports against them. */
   geminiRequestsPerDay: number;
   geminiRequestsPerMinute: number;
+  /** Live mode: the Gemini Live model that hears and speaks (gemini-3.8-live-extended-thinking reasons more but is slower). */
+  liveModel: string;
+  /** Live mode: one of Gemini's prebuilt voice names. */
+  liveVoice: string;
   latencyBudgetMs: { stt: number; firstLlmSentence: number; firstTtsAudio: number; firstWord: number };
   autoLeaveAloneS: number;
   botName: string;
@@ -45,6 +49,8 @@ export const tuning: Tuning = {
   geminiTemperature: 0.9,
   geminiRequestsPerDay: 500,
   geminiRequestsPerMinute: 15,
+  liveModel: 'gemini-3.8-live',
+  liveVoice: 'Kore',
   latencyBudgetMs: { stt: 600, firstLlmSentence: 700, firstTtsAudio: 400, firstWord: 2000 },
   autoLeaveAloneS: 300,
   botName: 'Buddy',

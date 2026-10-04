@@ -5,7 +5,7 @@ import { commandDefs } from '../src/commands.js';
 
 describe('commands', () => {
   it('registers the slash commands', () => {
-    expect(commandDefs.map((c) => c.name)).toEqual(['join', 'leave', 'persona', 'hush', 'status', 'usage', 'voice', 'voices', 'mirror', 'autojoin']);
+    expect(commandDefs.map((c) => c.name)).toEqual(['join', 'leave', 'persona', 'hush', 'status', 'mode', 'usage', 'voice', 'voices', 'mirror', 'autojoin']);
   });
 });
 

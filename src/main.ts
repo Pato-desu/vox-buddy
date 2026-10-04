@@ -1,5 +1,5 @@
 // Bot entry point: `npm start`. Needs .env (see SETUP.md) and the speech sidecar running.
-import { getVoiceConnection } from '@discordjs/voice';
+import { getVoiceConnection, type AudioPlayer } from '@discordjs/voice';
 import { Client, Events, GatewayIntentBits, REST, Routes, type Guild, type VoiceBasedChannel } from 'discord.js';
 import { createGenAiTransport } from './brain/gemini.js';
 import { ConversationMemory } from './brain/memory.js';
@@ -14,7 +14,10 @@ import { SettingsStore } from './settings.js';
 import { LatencyRecorder } from './pipeline/metrics.js';
 import { formatStatus } from './status.js';
 import { UsageTracker, formatUsage } from './usage.js';
-import { startSession, type SessionHandle } from './session.js';
+import { startSession } from './session.js';
+import { createGeminiLiveConnector } from './live/gemini-live.js';
+import { startLiveSession } from './live/session.js';
+import { DiscordStreamSink, StreamOutput } from './live/stream-output.js';
 import { SidecarClient } from './speech/client.js';
 import { formatVoices, scanVoices } from './voices.js';
 import { VoiceTts } from './speech/voice.js';
@@ -67,11 +70,13 @@ const makeLlm = (memory: ConversationMemory) =>
   });
 
 interface Active {
-  session: SessionHandle;
+  session: { setHushed(on: boolean): void; readonly hushed: boolean };
+  /** Live mode only: hangs up the cloud session. */
+  close?: () => void;
   latency: LatencyRecorder;
   channelName: string;
   managed: ManagedConnection;
-  sink: DiscordSink;
+  sink: { player: AudioPlayer };
   channelId: string;
   alone: AloneWatcher;
 }
@@ -84,6 +89,7 @@ function teardown(guildId: string): boolean {
   active.delete(guildId);
   a.alone.stop();
   a.session.setHushed(true); // cuts any reply in progress
+  a.close?.();
   a.managed.leave();
   return true;
 }
@@ -122,7 +128,9 @@ client.once(Events.ClientReady, async (c) => {
 /** Joins synchronously (no awaits), so two quick /join or /leave commands can't interleave and leak a session. */
 function joinVoice(guild: Guild, channel: VoiceBasedChannel): void {
   teardown(guild.id);
-  const sink = new DiscordSink();
+  const live = settings.get().mode === 'live';
+  const liveSink = live ? new DiscordStreamSink() : null;
+  const sink = liveSink ?? new DiscordSink();
   const receiver = new SwitchableReceiver();
   const managed = new ManagedConnection(
     { guildId: guild.id, channelId: channel.id },
@@ -145,34 +153,59 @@ function joinVoice(guild: Guild, channel: VoiceBasedChannel): void {
     },
   );
   managed.start();
-  const memory = new ConversationMemory(tuning.historyTurns);
+  const resolveSpeaker = (id: string) => {
+    const m = guild.members.cache.get(id);
+    return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
+  };
+  const onTurn = (who: string, heard: string, said: string): void => void (settings.get().mirrorChannelId && mirror.turn(who, heard, said));
   const latency = new LatencyRecorder();
-  const session = startSession({
-    memory,
-    latency,
-    replyWordHardCap: tuning.replyWordHardCap,
-    receiver,
-    stt: sidecar,
-    tts,
-    llm: makeLlm(memory),
-    player: new PlaybackQueue(sink),
-    capture: tuning,
-    minSentenceChars: tuning.ttsSentenceMinChars,
-    botTurnGapMs: tuning.botTurnGapMs,
-    hearingErrorLine: "Sorry, I can't hear properly right now.",
-    bargeIn: tuning.bargeInMode,
-    leave: { phrase: tuning.leavePhrase, farewell: tuning.leaveFarewell },
-    onLeave: () => teardown(guild.id),
-    resolveSpeaker: (id) => {
-      const m = guild.members.cache.get(id);
-      return m ? { userId: id, userName: m.displayName, isBot: m.user.bot || id === client.user?.id } : undefined;
-    },
-    log: (m) => logger.info(m),
-    debug: (m) => logger.debug(m),
-    onTurn: (who, heard, said) => settings.get().mirrorChannelId && mirror.turn(who, heard, said),
-  });
+  let session: Active['session'];
+  let close: (() => void) | undefined;
+  if (liveSink) {
+    const handle = startLiveSession({
+      receiver,
+      connect: createGeminiLiveConnector(env.googleApiKey),
+      output: new StreamOutput(liveSink),
+      capture: tuning,
+      model: tuning.liveModel,
+      voice: tuning.liveVoice,
+      persona: () => persona.get(),
+      resolveSpeaker,
+      bargeIn: tuning.bargeInMode,
+      leave: { phrase: tuning.leavePhrase },
+      onLeave: () => teardown(guild.id),
+      onTurn,
+      log: (m) => logger.info(m),
+      debug: (m) => logger.debug(m),
+    });
+    session = handle;
+    close = handle.close;
+  } else {
+    const memory = new ConversationMemory(tuning.historyTurns);
+    session = startSession({
+      memory,
+      latency,
+      replyWordHardCap: tuning.replyWordHardCap,
+      receiver,
+      stt: sidecar,
+      tts,
+      llm: makeLlm(memory),
+      player: new PlaybackQueue(sink as DiscordSink),
+      capture: tuning,
+      minSentenceChars: tuning.ttsSentenceMinChars,
+      botTurnGapMs: tuning.botTurnGapMs,
+      hearingErrorLine: "Sorry, I can't hear properly right now.",
+      bargeIn: tuning.bargeInMode,
+      leave: { phrase: tuning.leavePhrase, farewell: tuning.leaveFarewell },
+      onLeave: () => teardown(guild.id),
+      resolveSpeaker,
+      log: (m) => logger.info(m),
+      debug: (m) => logger.debug(m),
+      onTurn,
+    });
+  }
   const alone = new AloneWatcher({ afterMs: tuning.autoLeaveAloneS * 1000, onLeave: () => (logger.info('alone for too long, leaving'), teardown(guild.id)) });
-  active.set(guild.id, { alone, managed, sink, session, latency, channelName: channel.name, channelId: channel.id });
+  active.set(guild.id, { alone, managed, sink, session, ...(close && { close }), latency, channelName: channel.name, channelId: channel.id });
   alone.humansPresent(humansIn(guild.id, channel.id));
   session.setHushed(settings.get().hushed);
 }
@@ -186,6 +219,14 @@ client.on(Events.InteractionCreate, async (i) => {
       if (!channel) return void (await i.reply({ content: 'Join a voice channel first.', ephemeral: true }));
       joinVoice(guild, channel);
       await i.reply(`Joined ${channel.name}. Just talk.`);
+    } else if (i.commandName === 'mode') {
+      const which = i.options.getString('which', true) === 'live' ? 'live' : 'classic';
+      settings.update({ mode: which });
+      const a = active.get(guild.id);
+      const channel = a ? guild.channels.cache.get(a.channelId) : null;
+      if (channel?.isVoiceBased()) joinVoice(guild, channel); // switch now: rejoin the same channel in the new mode
+      const where = which === 'live' ? `Live mode (${tuning.liveModel}): Gemini in the cloud hears and speaks. Heads up: this sends the call's audio to Google.` : 'Classic mode: speech is processed on this PC and only text goes to Gemini.';
+      await i.reply({ content: `${where}${channel ? ' Rejoined to switch.' : ' Applies on the next /join.'}`, ephemeral: true });
     } else if (i.commandName === 'persona') {
       persona.reload();
       await i.reply({ content: 'Persona reloaded.', ephemeral: true });
@@ -239,7 +280,7 @@ client.on(Events.InteractionCreate, async (i) => {
       await i.deferReply({ ephemeral: true });
       const sidecarHealth = await sidecar.health();
       await i.editReply(
-        formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
+        formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), liveModel: tuning.liveModel, sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
       );
     } else if (i.commandName === 'usage') {
       await i.reply({ content: formatUsage(usage.snapshot(), tuning.geminiModel, { requestsPerDay: tuning.geminiRequestsPerDay, requestsPerMinute: tuning.geminiRequestsPerMinute }), ephemeral: true });

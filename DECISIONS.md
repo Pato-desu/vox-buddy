@@ -19,6 +19,12 @@ When a person starts talking over the bot, should it stop?
 - A) Off by default, switchable with a config flag, default because chat noise
 - B) On, posts what it heard and said in a text channel
 
+### D13 · Live (all-cloud) mode · 8 (I2 U2 L2) · review · default A applied
+Add a second mode where one Gemini Live session does hearing, thinking and speaking.
+- A) Optional `/mode live` next to the classic pipeline, classic stays the default because audio then never leaves the PC (SPEC §9), default
+- B) Replace the classic pipeline with live mode
+- Model: `gemini-3.8-live` (stable). Not `gemini-3.5-live-translate-preview`, which translates speech and is not a conversation model. Not the 3.1/2.5 live previews, which Google marks legacy.
+
 ### D12 · Local LLM · 6 (I3 U1 L2) · review
 Gemini is the only brain in Release 1 [D1]. The code keeps the brain behind an interface so Llama 3 8B via Ollama can be added later.
 - A) Later, default
