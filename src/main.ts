@@ -102,7 +102,9 @@ client.on(Events.VoiceStateUpdate, (oldS, newS) => {
 });
 
 client.once(Events.ClientReady, async (c) => {
-  await new REST().setToken(env.discordToken).put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
+  const rest = new REST().setToken(env.discordToken);
+  await rest.put(Routes.applicationCommands(c.user.id), { body: [] }); // drop stale global commands that show up as duplicates next to the guild ones
+  await rest.put(Routes.applicationGuildCommands(c.user.id, env.guildId), { body: commandDefs });
   await refreshClone();
   settings.update({ mirrorChannelId: null }); // transcript mirroring is opt-in per run, never silently resumed after a restart
   const autoId = settings.get().autoJoinChannelId;

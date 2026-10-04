@@ -47,7 +47,7 @@ class WhisperStt:
 
     name = "faster-whisper"
 
-    def __init__(self, model_size: str = "small.en", loader: Callable[..., Any] | None = None) -> None:
+    def __init__(self, model_size: str = "small", loader: Callable[..., Any] | None = None) -> None:
         self.model_size = model_size
         self._loader = loader
         self._model: Any = None
@@ -72,7 +72,7 @@ class WhisperStt:
         return self._model
 
     def _run(self, audio: Any) -> str:
-        segments, _info = self._load().transcribe(audio, language="en", vad_filter=False)
+        segments, _info = self._load().transcribe(audio, language=None, vad_filter=False)  # language=None: whisper detects English or Spanish per utterance
         return " ".join(s.text.strip() for s in segments).strip()  # segments is lazy: inference happens here
 
     def transcribe(self, pcm: bytes, sample_rate: int) -> str:
