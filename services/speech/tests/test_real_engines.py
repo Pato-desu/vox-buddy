@@ -210,3 +210,38 @@ def test_xtts_warmup_loads_the_model(tmp_path):
     clone, model = make_clone(tmp_path, lambda: t[0], loads)
     clone.warmup("me")
     assert clone.loaded and model.calls[0][0] == "Okay."
+
+
+def test_xtts_never_runs_two_syntheses_at_once(tmp_path):
+    import threading
+    import time
+
+    from app.real_engines import XttsClone
+
+    (tmp_path / "me.wav").write_bytes(b"RIFF")
+    running, peak = [0], [0]
+
+    class SlowXtts:
+        def tts(self, text, speaker_wav, language):
+            running[0] += 1
+            peak[0] = max(peak[0], running[0])
+            time.sleep(0.05)
+            running[0] -= 1
+            return [0.0] * 100
+
+    clone = XttsClone(voices_dir=str(tmp_path), loader=SlowXtts)
+    threads = [threading.Thread(target=clone.synthesize, args=("hi", "me")) for _ in range(4)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert peak[0] == 1
+
+
+def test_xtts_does_not_unload_while_speaking(tmp_path):
+    t, loads = [0.0], []
+    clone, _ = make_clone(tmp_path, lambda: t[0], loads)
+    clone.synthesize("hello", "me")
+    t[0] = 500
+    with clone._lock:
+        assert clone.unload_if_idle() is False and clone.loaded

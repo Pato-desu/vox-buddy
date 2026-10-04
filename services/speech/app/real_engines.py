@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import array
 import os
+import threading
 from typing import Any, Callable
 
 
@@ -169,6 +170,7 @@ class XttsClone:
         self._on_unload = on_unload
         self._vram_probe = vram_probe
         self.min_free_mb = min_free_mb
+        self._lock = threading.Lock()
         self._model: Any = None
         self._last_used = 0.0
 
@@ -198,20 +200,25 @@ class XttsClone:
             if loader is None:
 
                 def loader() -> Any:
+                    import torch
                     from TTS.api import TTS  # type: ignore
 
-                    return TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+                    # TTS() loads on the CPU unless moved; XTTS on CPU is far too slow for conversation.
+                    return TTS("tts_models/multilingual/multi-dataset/xtts_v2").to("cuda" if torch.cuda.is_available() else "cpu")
 
             self._model = loader()
         return self._model
 
     def synthesize(self, text: str, sample: str | None) -> bytes:
         path = self._sample_path(sample)
-        model = self._load()
-        try:
-            samples = model.tts(text=text, speaker_wav=path, language="en")
-        finally:
-            self._last_used = self._clock()
+        # One call at a time: XTTS keeps generation state in the model, and overlapping calls (a warmup plus a
+        # real sentence, or a client retry after a timeout) corrupt it ("IndexError: index out of range").
+        with self._lock:
+            model = self._load()
+            try:
+                samples = model.tts(text=text, speaker_wav=path, language="en")
+            finally:
+                self._last_used = self._clock()
         a = array.array("h", (max(-32768, min(32767, int(s * 32767))) for s in samples))
         return a.tobytes()
 
@@ -230,7 +237,12 @@ class XttsClone:
         """Frees the model once idle for long enough. Returns True if it unloaded."""
         if self._model is None or self._clock() - self._last_used < self.idle_unload_s:
             return False
-        self._model = None
-        if self._on_unload:
-            self._on_unload()  # e.g. release GPU memory
+        if not self._lock.acquire(blocking=False):
+            return False  # a sentence is being spoken
+        try:
+            self._model = None
+            if self._on_unload:
+                self._on_unload()  # e.g. release GPU memory
+        finally:
+            self._lock.release()
         return True
