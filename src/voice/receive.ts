@@ -25,8 +25,10 @@ export interface ReceiveOptions {
   capture: CaptureOptions;
   resolveSpeaker: (userId: string) => Speaker | undefined;
   onUtterance: (u: Utterance) => void;
-  /** Called the moment a user starts speaking (used for barge-in). */
+  /** Called the moment Discord flags a user as speaking. This also fires for noise, so don't interrupt on it alone. */
   onSpeechStart?: (userId: string) => void;
+  /** Called once per utterance when the user has really been speaking for `capture.bargeInStopMs` (used for barge-in). */
+  onSpeechConfirmed?: (userId: string) => void;
   onError?: (e: Error) => void;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -57,7 +59,7 @@ export function attachReceive(receiver: ReceiverLike, o: ReceiveOptions): void {
     active.add(userId);
     let det = detectors.get(userId);
     if (!det) {
-      det = new UtteranceDetector(speaker, o.capture, o.onUtterance);
+      det = new UtteranceDetector(speaker, o.capture, o.onUtterance, o.onSpeechConfirmed && (() => o.onSpeechConfirmed?.(userId)));
       detectors.set(userId, det);
     }
     const d = det;

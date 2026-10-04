@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { normalizeDayUsage, type DayUsage } from './usage.js';
 
 export type VoiceKind = 'fast' | 'clone';
 
@@ -13,9 +14,11 @@ export interface Settings {
   hushed: boolean;
   /** Text channel that gets heard/said lines (D10); null = off. */
   mirrorChannelId: string | null;
+  /** Gemini token counts for the current local day (counts only, no text); see /usage. */
+  usage: DayUsage | null;
 }
 
-export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null, hushed: false };
+export const defaultSettings: Settings = { voice: 'fast', cloneSample: null, autoJoinChannelId: null, mirrorChannelId: null, hushed: false, usage: null };
 
 export interface SettingsIo {
   read: (path: string) => string;
@@ -23,6 +26,11 @@ export interface SettingsIo {
 }
 
 const fsIo: SettingsIo = { read: (p) => readFileSync(p, 'utf8'), write: (p, t) => writeFileSync(p, t) };
+
+const dayUsage = (v: unknown): DayUsage | null => {
+  const day = (v as { day?: unknown } | null | undefined)?.day;
+  return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? normalizeDayUsage(v, day) : null;
+};
 
 /** Keeps only known keys with the right type; anything else falls back to the default. */
 export function normalizeSettings(raw: unknown): Settings {
@@ -34,6 +42,7 @@ export function normalizeSettings(raw: unknown): Settings {
     autoJoinChannelId: str(o.autoJoinChannelId),
     mirrorChannelId: str(o.mirrorChannelId),
     hushed: o.hushed === true,
+    usage: dayUsage(o.usage),
   };
 }
 

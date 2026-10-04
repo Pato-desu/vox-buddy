@@ -13,6 +13,7 @@ import { PersonaStore } from './persona.js';
 import { SettingsStore } from './settings.js';
 import { LatencyRecorder } from './pipeline/metrics.js';
 import { formatStatus } from './status.js';
+import { UsageTracker, formatUsage } from './usage.js';
 import { startSession, type SessionHandle } from './session.js';
 import { SidecarClient } from './speech/client.js';
 import { formatVoices, scanVoices } from './voices.js';
@@ -46,8 +47,11 @@ const mirror = new TranscriptMirror({
   },
   onError: (e) => logger.warn(`mirror post failed: ${e.message}`),
 });
+const usage = new UsageTracker({ load: () => settings.get().usage, save: (d) => void settings.update({ usage: d }) });
+
 const makeLlm = (memory: ConversationMemory) =>
   new GeminiLlm({
+    onUsage: (u) => usage.record(u),
     history: () => memory.history(),
     transport: createGenAiTransport(env.googleApiKey),
     model: tuning.geminiModel,
@@ -130,6 +134,10 @@ function joinVoice(guild: Guild, channel: VoiceBasedChannel): void {
       },
       onGiveUp: () => {
         logger.error('voice: could not reconnect; use /join again');
+        teardown(guild.id);
+      },
+      onKicked: () => {
+        logger.info('removed from the voice channel; staying out until /join');
         teardown(guild.id);
       },
     },
@@ -229,6 +237,8 @@ client.on(Events.InteractionCreate, async (i) => {
       await i.editReply(
         formatStatus({ channelName: a?.channelName ?? null, hushed: a?.session.hushed ?? false, settings: settings.get(), sidecar: sidecarHealth, latency: a?.latency.summary() ?? null, gpu: sidecarHealth.gpu ?? null, effectiveVoice: tts.effectiveVoice }),
       );
+    } else if (i.commandName === 'usage') {
+      await i.reply({ content: formatUsage(usage.snapshot(), tuning.geminiModel), ephemeral: true });
     } else if (i.commandName === 'leave') {
       const left = teardown(guild.id);
       await i.reply({ content: left ? 'Bye!' : "I'm not in a voice channel.", ephemeral: !left });

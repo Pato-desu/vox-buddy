@@ -13,17 +13,33 @@ export interface GeminiRequest {
   signal?: AbortSignal;
 }
 
+/** Tokens Gemini reports for one request. The numbers are cumulative within a streamed reply. */
+export interface TokenUsage {
+  promptTokens: number;
+  outputTokens: number;
+  /** Hidden reasoning tokens (billed like output). Zero on models that don't think. */
+  thinkingTokens: number;
+}
+
+/** Reads the API's `usageMetadata`; undefined when it carries no counts. */
+export function toUsage(m: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } | undefined | null): TokenUsage | undefined {
+  if (!m || (m.promptTokenCount === undefined && m.candidatesTokenCount === undefined)) return undefined;
+  return { promptTokens: m.promptTokenCount ?? 0, outputTokens: m.candidatesTokenCount ?? 0, thinkingTokens: m.thoughtsTokenCount ?? 0 };
+}
+
 /** One streamed piece from the API, already reduced to what we care about. */
 export interface TransportChunk {
   text?: string;
   /** Set when the prompt or reply was blocked (e.g. SAFETY). */
   blockReason?: string;
+  usage?: TokenUsage;
 }
 
 export type Transport = (req: GeminiRequest) => AsyncIterable<TransportChunk>;
 
 export type GeminiEvent =
   | { type: 'text'; text: string }
+  | ({ type: 'usage' } & TokenUsage)
   | { type: 'blocked'; reason: string }
   | { type: 'error'; kind: 'rate_limit' | 'server' | 'auth' | 'aborted' | 'unknown'; message: string };
 
@@ -42,6 +58,7 @@ export function classifyError(e: unknown): Extract<GeminiEvent, { type: 'error' 
 export async function* streamReply(transport: Transport, req: GeminiRequest): AsyncGenerator<GeminiEvent> {
   try {
     for await (const chunk of transport(req)) {
+      if (chunk.usage) yield { type: 'usage', ...chunk.usage };
       if (chunk.blockReason) {
         yield { type: 'blocked', reason: chunk.blockReason };
         return;
@@ -69,9 +86,10 @@ export function createGenAiTransport(apiKey: string): Transport {
     for await (const chunk of stream) {
       const blockReason = chunk.promptFeedback?.blockReason ?? undefined;
       const finish = chunk.candidates?.[0]?.finishReason;
-      if (blockReason) yield { blockReason: String(blockReason) };
-      else if (finish === 'SAFETY' || finish === 'PROHIBITED_CONTENT') yield { blockReason: String(finish) };
-      else yield { text: chunk.text ?? '' };
+      const usage = toUsage(chunk.usageMetadata);
+      if (blockReason) yield { blockReason: String(blockReason), ...(usage && { usage }) };
+      else if (finish === 'SAFETY' || finish === 'PROHIBITED_CONTENT') yield { blockReason: String(finish), ...(usage && { usage }) };
+      else yield { text: chunk.text ?? '', ...(usage && { usage }) };
     }
   };
 }

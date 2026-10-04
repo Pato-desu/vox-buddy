@@ -1,5 +1,5 @@
 import type { Llm, LlmTurn } from '../pipeline/types.js';
-import { streamReply, type ChatMessage, type Transport } from './gemini.js';
+import { streamReply, type ChatMessage, type TokenUsage, type Transport } from './gemini.js';
 
 export interface GeminiLlmOptions {
   transport: Transport;
@@ -15,6 +15,8 @@ export interface GeminiLlmOptions {
   /** The same failure within this window stays silent instead of apologising again. Default 30 s. */
   apologyCooldownMs?: number;
   now?: () => number;
+  /** Called once per request with the tokens Gemini reported (also when the reply was cut short). */
+  onUsage?: (u: TokenUsage) => void;
 }
 
 export type FailureKind = 'blocked' | 'rate_limit' | 'server' | 'auth' | 'unknown';
@@ -28,22 +30,29 @@ export class GeminiLlm implements Llm {
   async *stream(turn: LlmTurn, signal?: AbortSignal): AsyncIterable<string> {
     const persona = typeof this.o.persona === 'function' ? this.o.persona() : this.o.persona;
     const history: ChatMessage[] = [...(this.o.history?.() ?? []), { role: 'user', text: `${turn.speaker}: ${turn.text}` }];
-    for await (const ev of streamReply(this.o.transport, {
-      model: this.o.model,
-      systemInstruction: persona,
-      temperature: this.o.temperature,
-      history,
-      signal,
-    })) {
-      if (ev.type === 'text') {
-        this.lastApology.clear(); // recovered: the next failure gets a fresh apology
-        yield ev.text;
-      } else if (ev.type === 'blocked') return void (yield* this.apologise('blocked', this.o.blockedLine));
-      else if (ev.kind === 'aborted') return;
-      else {
-        const kind: FailureKind = ev.kind;
-        return void (yield* this.apologise(kind, (kind !== 'unknown' && this.o.lines?.[kind]) || this.o.errorLine));
+    let usage: TokenUsage | undefined; // cumulative, so the last report is the total
+    try {
+      for await (const ev of streamReply(this.o.transport, {
+        model: this.o.model,
+        systemInstruction: persona,
+        temperature: this.o.temperature,
+        history,
+        signal,
+      })) {
+        if (ev.type === 'usage') {
+          usage = { promptTokens: ev.promptTokens, outputTokens: ev.outputTokens, thinkingTokens: ev.thinkingTokens };
+        } else if (ev.type === 'text') {
+          this.lastApology.clear(); // recovered: the next failure gets a fresh apology
+          yield ev.text;
+        } else if (ev.type === 'blocked') return void (yield* this.apologise('blocked', this.o.blockedLine));
+        else if (ev.kind === 'aborted') return;
+        else {
+          const kind: FailureKind = ev.kind;
+          return void (yield* this.apologise(kind, (kind !== 'unknown' && this.o.lines?.[kind]) || this.o.errorLine));
+        }
       }
+    } finally {
+      if (usage) this.o.onUsage?.(usage);
     }
   }
 

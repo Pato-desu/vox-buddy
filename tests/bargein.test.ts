@@ -51,13 +51,18 @@ function rig(mode: BargeInMode) {
     bargeIn: mode,
     resolveSpeaker: (id) => ({ userId: id, userName: id, isBot: false }),
   });
-  const startSpeaking = (id: string): void => onStart(id);
+  const startSpeaking = (id: string): void => onStart(id); // only Discord's "speaking" flag: no audio yet
+  /** Real interruption: the flag plus enough loud audio to count as speech (300 ms+). */
+  const interrupt = (id: string): void => {
+    startSpeaking(id);
+    streams.get(id)!.write(tone(400, 6000));
+  };
   const speak = (id: string): void => {
     startSpeaking(id);
     streams.get(id)!.write(tone(1000, 6000));
     streams.get(id)!.write(tone(900, 0));
   };
-  return { s, speak, startSpeaking, queue, m, replies };
+  return { s, speak, startSpeaking, interrupt, streams, queue, m, replies };
 }
 const tick = (ms = 20): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -67,8 +72,8 @@ describe('barge-in', () => {
     r.speak('a');
     await tick(150); // reply is playing sentence 1, the rest is queued
     expect(r.queue.playing).toBe(true);
-    r.startSpeaking('b'); // b interrupts
-    expect(r.m.stops).toBe(1); // stopped synchronously, well inside the 300 ms budget
+    r.interrupt('b'); // b interrupts
+    expect(r.m.stops).toBe(1); // stopped as soon as 300 ms of real speech arrived
     expect(r.queue.pending).toBe(0);
     r.speak('b');
     await tick(200);
@@ -83,7 +88,7 @@ describe('barge-in', () => {
     const r = rig('sentence');
     r.speak('a');
     await tick(150);
-    r.startSpeaking('b');
+    r.interrupt('b');
     expect(r.m.stops).toBe(0);
     expect(r.queue.pending).toBe(0);
     expect(r.queue.playing).toBe(true);
@@ -96,9 +101,30 @@ describe('barge-in', () => {
     const r = rig('never');
     r.speak('a');
     await tick(150);
-    r.startSpeaking('b');
+    r.interrupt('b');
     expect(r.m.stops).toBe(0);
     expect(r.queue.pending).toBeGreaterThan(0);
+  });
+  it('a noise blip does not cut the reply: the speaking flag alone, or under 300 ms of sound, is ignored', async () => {
+    const r = rig('stop');
+    r.speak('a');
+    await tick(150);
+    expect(r.queue.playing).toBe(true);
+    r.startSpeaking('b'); // Discord flags b as speaking (cough, click, noise)
+    expect(r.m.stops).toBe(0);
+    r.streams.get('b')!.write(tone(100, 6000)); // 100 ms of sound, then nothing
+    expect(r.m.stops).toBe(0);
+    expect(r.queue.playing).toBe(true);
+    r.streams.get('b')!.write(tone(250, 0)); // quiet frames don't add up to speech
+    expect(r.m.stops).toBe(0);
+  });
+  it('quiet background noise below the energy gate never interrupts', async () => {
+    const r = rig('stop');
+    r.speak('a');
+    await tick(150);
+    r.startSpeaking('b');
+    r.streams.get('b')!.write(tone(2000, 200)); // 2 s of low-level hum, under the gate
+    expect(r.m.stops).toBe(0);
   });
   it('ignores speech when the bot is quiet', async () => {
     const r = rig('stop');

@@ -114,17 +114,17 @@ export function startSession(d: SessionDeps): SessionHandle {
       })
       .catch((e: Error) => d.log?.(`turn failed: ${e.message}`)); // one bad turn never kills the session
   };
-  /** Someone started talking: cut the bot off if it is mid-reply (D5). */
-  const onSpeechStart = (): void => {
+  /** Someone has really been talking (not just a noise blip): cut the bot off if it is mid-reply (D5). */
+  const onInterruption = (userId: string): void => {
     if (bargeIn === 'never') return;
     if (!replying && !d.player.playing) return;
     current?.abort();
     interrupted = true;
     if (bargeIn === 'stop') d.player.stop();
     else d.player.dropPending?.();
-    d.log?.('barge-in: reply stopped');
+    d.log?.(`barge-in: reply stopped by ${d.resolveSpeaker(userId)?.userName ?? 'someone'}`);
   };
-  attachReceive(d.receiver, { onSpeechStart, capture: d.capture, resolveSpeaker: d.resolveSpeaker, onUtterance, onError: (e) => d.log?.(`audio stream error: ${e.message}`) });
+  attachReceive(d.receiver, { onSpeechConfirmed: onInterruption, capture: d.capture, resolveSpeaker: d.resolveSpeaker, onUtterance, onError: (e) => d.log?.(`audio stream error: ${e.message}`) });
   return {
     whenIdle: () => chain,
     setHushed: (on) => {

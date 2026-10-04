@@ -15,6 +15,7 @@ Follow SETUP.md (Windows, from zero), then `.\start.ps1` starts the speech sidec
 | `/leave` | Leave the channel (also automatic after 5 min alone) |
 | `/hush [on\|off]` | Stop answering but keep listening; `/hush off` resumes (no argument toggles) |
 | `/status` | Channel, voice in use, sidecar health, GPU memory, latency |
+| `/usage` | Gemini tokens the bot used: this run, today, last minute (counts only; Google shows the real quota at aistudio.google.com/usage) |
 | `/voice fast\|clone` | Quick offline Piper voice, or your cloned voice |
 | `/voices list\|use <name>` | Show or pick a clone sample from `voices/` |
 | `/persona reload` | Re-read `persona.md` (how the bot talks) |

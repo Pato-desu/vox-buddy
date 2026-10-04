@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ManagedConnection, type ConnectionLike } from '../src/voice/connection.js';
+import { VoiceConnectionDisconnectReason, VoiceConnectionStatus } from '@discordjs/voice';
+import { ManagedConnection, voiceStatusOf, type ConnectionLike } from '../src/voice/connection.js';
+
+describe('voiceStatusOf', () => {
+  it("turns only a 4014 websocket close into 'removed'", () => {
+    const ws = VoiceConnectionDisconnectReason.WebSocketClose;
+    expect(voiceStatusOf({ status: VoiceConnectionStatus.Disconnected, reason: ws, closeCode: 4014 })).toBe('removed');
+    expect(voiceStatusOf({ status: VoiceConnectionStatus.Disconnected, reason: ws, closeCode: 4006 })).toBe('disconnected');
+    expect(voiceStatusOf({ status: VoiceConnectionStatus.Disconnected, reason: VoiceConnectionDisconnectReason.EndpointRemoved })).toBe('disconnected');
+    expect(voiceStatusOf({ status: VoiceConnectionStatus.Ready })).toBe('ready');
+    expect(voiceStatusOf({ status: VoiceConnectionStatus.Destroyed })).toBe('destroyed');
+  });
+});
 
 class FakeConn implements ConnectionLike {
   status = 'signalling';
@@ -140,6 +152,47 @@ describe('ManagedConnection recovery', () => {
     first.emit('destroyed');
     await vi.advanceTimersByTimeAsync(0);
     expect(gaveUp).toBe(1);
+  });
+
+  it('stays out when Discord removed it from the channel (kick), and tells the caller once', async () => {
+    const conns: FakeConn[] = [];
+    let kicked = 0;
+    const logs: string[] = [];
+    const m = new ManagedConnection(
+      { guildId: 'g', channelId: 'c' },
+      { join: () => (conns.push(new FakeConn()), conns.at(-1)!), sleep: async () => {}, recoverMs: 5000, onKicked: () => kicked++, log: (s) => logs.push(s) },
+    );
+    m.start();
+    conns[0]!.emit('ready');
+    conns[0]!.emit('removed');
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(kicked).toBe(0); // still might be a move to another channel
+    await vi.advanceTimersByTimeAsync(1);
+    expect(kicked).toBe(1);
+    expect(conns[0]!.destroyed).toBe(true);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(conns).toHaveLength(1); // never rejoined
+    expect(kicked).toBe(1);
+    expect(logs.join('\n')).toContain('removed from the channel');
+  });
+
+  it('does not treat a move to another channel as a kick', async () => {
+    const conns: FakeConn[] = [];
+    let kicked = 0;
+    const m = new ManagedConnection(
+      { guildId: 'g', channelId: 'c' },
+      { join: () => (conns.push(new FakeConn()), conns.at(-1)!), sleep: async () => {}, recoverMs: 5000, onKicked: () => kicked++ },
+    );
+    m.start();
+    conns[0]!.emit('ready');
+    conns[0]!.emit('removed'); // 4014 also happens when moved...
+    await vi.advanceTimersByTimeAsync(1500);
+    conns[0]!.emit('signalling'); // ...and then Discord reconnects us itself
+    conns[0]!.emit('connecting');
+    conns[0]!.emit('ready');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(kicked).toBe(0);
+    expect(conns).toHaveLength(1);
   });
 
   it('keeps going through repeated disconnects without crashing', async () => {

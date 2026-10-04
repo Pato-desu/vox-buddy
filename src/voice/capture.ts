@@ -30,6 +30,8 @@ export interface CaptureOptions {
   maxUtteranceMs: number;
   /** RMS above this counts as speech. */
   energyGate: number;
+  /** This much loud speech in one utterance counts as a real interruption (not a click, cough or noise blip). Default 300. */
+  bargeInStopMs?: number;
 }
 
 export interface Speaker {
@@ -49,8 +51,15 @@ export class UtteranceDetector {
   private total = 0;
   private startedAt = 0;
   private clock = 0;
+  private sustained = false;
 
-  constructor(private readonly speaker: Speaker, private readonly o: CaptureOptions, private readonly onUtterance: (u: Utterance) => void) {}
+  /** `onSustained` fires once per utterance, as soon as it holds `bargeInStopMs` of loud speech. */
+  constructor(
+    private readonly speaker: Speaker,
+    private readonly o: CaptureOptions,
+    private readonly onUtterance: (u: Utterance) => void,
+    private readonly onSustained?: () => void,
+  ) {}
 
   get speaking(): boolean {
     return this.chunks.length > 0;
@@ -80,6 +89,10 @@ export class UtteranceDetector {
       }
       if (ms(this.trailingSilence) >= this.o.silenceEndMs || ms(this.total) >= this.o.maxUtteranceMs) this.finish();
     }
+    if (this.speaking && !this.sustained && this.onSustained && ms(this.speechSamples) >= (this.o.bargeInStopMs ?? 300)) {
+      this.sustained = true;
+      this.onSustained();
+    }
     this.clock += frame.length;
   }
 
@@ -101,6 +114,7 @@ export class UtteranceDetector {
     this.total = 0;
     this.speechSamples = 0;
     this.trailingSilence = 0;
+    this.sustained = false;
     if (speechMs < this.o.minUtteranceMs) return; // keyboard click, cough
     this.onUtterance({
       userId: this.speaker.userId,

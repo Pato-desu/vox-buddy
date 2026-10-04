@@ -46,6 +46,44 @@ describe('attachReceive', () => {
   });
 });
 
+describe('onSpeechConfirmed', () => {
+  const setup = () => {
+    const streams = new Map<string, PassThrough>();
+    let onStart: (id: string) => void = () => {};
+    const receiver: ReceiverLike = { onSpeakingStart: (l) => (onStart = l), subscribePcm: (id) => streams.set(id, new PassThrough()).get(id)! };
+    const confirmed: string[] = [];
+    attachReceive(receiver, {
+      capture: CAPTURE,
+      resolveSpeaker: (id) => ({ userId: id, userName: id, isBot: id === 'bot' }),
+      onUtterance: () => {},
+      onSpeechConfirmed: (id) => confirmed.push(id),
+    });
+    return { onStart, streams, confirmed };
+  };
+
+  it('fires once, only after 300 ms of loud speech, and never for bots', () => {
+    const { onStart, streams, confirmed } = setup();
+    onStart('a');
+    streams.get('a')!.write(pcm48(100, 6000));
+    expect(confirmed).toEqual([]); // a blip
+    streams.get('a')!.write(pcm48(150, 6000));
+    expect(confirmed).toEqual([]); // 250 ms: not yet
+    streams.get('a')!.write(pcm48(100, 6000));
+    expect(confirmed).toEqual(['a']); // 350 ms
+    streams.get('a')!.write(pcm48(1000, 6000));
+    expect(confirmed).toEqual(['a']); // once per utterance
+    onStart('bot');
+    expect(streams.has('bot')).toBe(false);
+  });
+
+  it('ignores audio under the energy gate', () => {
+    const { onStart, streams, confirmed } = setup();
+    onStart('a');
+    streams.get('a')!.write(pcm48(2000, 100));
+    expect(confirmed).toEqual([]);
+  });
+});
+
 describe('SwitchableReceiver', () => {
   it('re-registers the listener and routes audio to the newest receiver', async () => {
     const { SwitchableReceiver } = await import('../src/voice/receive.js');

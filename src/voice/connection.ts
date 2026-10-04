@@ -1,4 +1,4 @@
-import { joinVoiceChannel, VoiceConnectionStatus, type VoiceConnection } from '@discordjs/voice';
+import { joinVoiceChannel, VoiceConnectionDisconnectReason, VoiceConnectionStatus, type VoiceConnection } from '@discordjs/voice';
 import type { DiscordGateway } from './types.js';
 
 /** The slice of a voice connection this code relies on. A fake implements it in tests. */
@@ -28,6 +28,8 @@ export interface ManagedOptions {
   onConnection?: (conn: ConnectionLike) => void;
   /** Called once when rejoining is abandoned. */
   onGiveUp?: () => void;
+  /** Called once when Discord removed the bot from the channel (kick or "Disconnect"). It does not rejoin. */
+  onKicked?: () => void;
   backoffMs?: (attempt: number) => number;
   sleep?: (ms: number) => Promise<void>;
   log?: (msg: string) => void;
@@ -41,6 +43,7 @@ export class ManagedConnection {
   private closed = false;
   private recovering = false;
   private recoverTimer: ReturnType<typeof setTimeout> | undefined;
+  private kickTimer: ReturnType<typeof setTimeout> | undefined;
   private readyTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly sleep: (ms: number) => Promise<void>;
 
@@ -60,6 +63,7 @@ export class ManagedConnection {
   leave(): void {
     this.closed = true;
     clearTimeout(this.recoverTimer);
+    clearTimeout(this.kickTimer);
     clearTimeout(this.readyTimer);
     this.detach();
     this.conn?.destroy();
@@ -89,7 +93,23 @@ export class ManagedConnection {
     if (status === 'ready') {
       this.rejoins = 0;
       clearTimeout(this.recoverTimer);
+      clearTimeout(this.kickTimer);
       clearTimeout(this.readyTimer);
+      return;
+    }
+    if (status === 'signalling' || status === 'connecting') {
+      clearTimeout(this.kickTimer); // moved to another channel: Discord is reconnecting us itself
+      return;
+    }
+    if (status === 'removed') {
+      // Close code 4014: moved (Discord reconnects within seconds) or removed (it doesn't). Wait to tell which.
+      clearTimeout(this.recoverTimer);
+      clearTimeout(this.kickTimer);
+      this.kickTimer = setTimeout(() => {
+        this.o.log?.('voice: removed from the channel, not rejoining');
+        this.leave();
+        this.o.onKicked?.();
+      }, this.o.recoverMs ?? 5000);
       return;
     }
     if (status === 'disconnected') {
@@ -134,6 +154,15 @@ export class ManagedConnection {
   }
 }
 
+/** Discord closes the voice socket with 4014 when the bot is moved, kicked or its channel deleted. */
+const CLOSE_CODE_REMOVED = 4014;
+
+/** The status string ManagedConnection sees: a 4014 disconnect becomes 'removed', anything else passes through. */
+export function voiceStatusOf(state: { status: string; reason?: unknown; closeCode?: number }): string {
+  const removed = state.status === VoiceConnectionStatus.Disconnected && state.reason === VoiceConnectionDisconnectReason.WebSocketClose && state.closeCode === CLOSE_CODE_REMOVED;
+  return removed ? 'removed' : state.status;
+}
+
 /** Real joiner: @discordjs/voice with DAVE end-to-end encryption on (mandatory on Discord). */
 export function createDiscordJoiner(gateway: DiscordGateway): Joiner {
   return ({ guildId, channelId }) => {
@@ -151,7 +180,7 @@ export function createDiscordJoiner(gateway: DiscordGateway): Joiner {
         return raw.state.status;
       },
       onStatus(listener) {
-        const h = (_o: unknown, n: { status: string }) => listener(n.status);
+        const h = (_o: unknown, n: { status: string; reason?: unknown; closeCode?: number }) => listener(voiceStatusOf(n));
         raw.on('stateChange', h);
         return () => void raw.off('stateChange', h);
       },
