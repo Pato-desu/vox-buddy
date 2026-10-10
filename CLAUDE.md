@@ -15,5 +15,5 @@ Discord voice bot: hears people in a voice channel, answers out loud (Gemini bra
 ## Environment notes
 - Cloud runs: Linux VM with the default "Trusted" network (package registries, GitHub, *.googleapis.com). Node here is v22 (engines >=22). Headless browser: Playwright (npm devDependency) with the preinstalled Chromium at /opt/pw-browsers/chromium via executablePath (`npm run smoke` picks it up; override with CHROMIUM_PATH). Do not run `playwright install`. Python 3.11 is installed but pytest/fastapi/httpx may be missing: `pip install pytest fastapi httpx` (otherwise `npm run check` skips the sidecar tests with a notice). `LOG_LEVEL=debug` also logs transcripts.
 ## Owner
-- Writes in English. Owner-facing notes are in English. Notify: email patriciovercesi@gmail.com. Run budget: 90 min.
+- Writes in English. Owner-facing notes are in English. Notify: through the run's session, no email. Run budget: 90 min.
 - Commits end with: Co-Authored-By: Claude <noreply@anthropic.com>

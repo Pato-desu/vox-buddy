@@ -27,6 +27,6 @@ Status: Release candidate: waiting for owner feedback (42/42 tasks) Â· Build 6 Â
 - M0: self-review of desktop and phone screenshots; page readable, no overflow, no console errors. Nothing must-fix.
 ## Feedback log
 feedback-sha: df462b2e7a62bb13a35e5f77af3cfd4651d6e792
-Last notified: 2026-10-02 (release candidate email)
+Last notified: 2026-10-02 (release candidate)
 ## Next run
 Nothing open. Idle until owner feedback; then handle it per the protocol. Parked should-fix items from the final QA are candidates for follow-up tasks.

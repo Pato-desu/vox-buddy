@@ -39,7 +39,7 @@ If a task fails twice, revert its partial work, put it under "Blocked" with what
 - Run `npm run demo`, which writes dist/demo.html: one self-contained page fragment of 15 MB or less (the publisher adds the html, head and body). Run the smoke test. Never ship a build that fails it; keep the last good one.
 - Publish: if the demo is https://claude.ai/artifact/JofBGxzeGs9fYLxupWpoo1 (not "none"), read that artifact first, then publish dist/demo.html to that same URL. Publish the page only: no supporting files, no capabilities. If the publish is refused or needs approval, add to "Owner to-do": why it failed, and that the demo must stay private (not shared publicly) for runs to update it. Then go on.
 - Update AUTODEV.md (format below), commit and push.
-- Notify (email patriciovercesi@gmail.com) only if this run reached a milestone Checkpoint or a new decision scoring 12+ is waiting, and only if "Last notified" isn't today. Email: subject "[Vox Buddy] <what needs you or what's new>", 8 lines or fewer, with the demo link and how to answer. Push, if a push tool exists: one line. Update "Last notified".
+- Notify (no email: the owner reads the session) only if this run reached a milestone Checkpoint or a new decision scoring 12+ is waiting, and only if "Last notified" isn't today. Put it at the top of the run's final message, headed "[Vox Buddy] <what needs you or what's new>", 8 lines or fewer, with the demo link and how to answer. Push, if a push tool exists: one line. Update "Last notified".
 
 ## 7. New decisions found while working
 Rate each one: Impact × Uncertainty × Lock-in, each 1–3. Add it to DECISIONS.md with options and a default.

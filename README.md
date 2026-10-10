@@ -37,3 +37,6 @@ Spoken: say "parrot leave" (in a short sentence) and the bot says goodbye and le
 
 ## Privacy
 Audio is processed in memory and never saved. In the default classic mode only transcript text goes to Gemini. In `/mode live` the call's audio is streamed to Google's Gemini Live API (nothing is recorded by the bot). Logs redact keys, and what people said appears in logs only at `LOG_LEVEL=debug`.
+
+## License
+The code is MIT (see LICENSE). The models it downloads have their own terms: Coqui XTTS-v2, used for `/voice clone`, is under the Coqui Public Model License, which is non-commercial. Piper voices and faster-whisper models are licensed separately by their authors. Only clone voices you have permission to use.
