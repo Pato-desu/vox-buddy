@@ -1,9 +1,13 @@
 # Vox Buddy
-A Discord bot that sits in a voice channel, hears everyone, and talks back like a quick-witted friend. Gemini thinks; speech recognition and voice synthesis run on your own PC.
-- Demo (private build report): https://claude.ai/artifact/JofBGxzeGs9fYLxupWpoo1
-- Status: AUTODEV.md · Spec: SPEC.md · Decisions: DECISIONS.md · Plan: TASKS.md
-- Feedback: add a line to FEEDBACK.md
-Built by an autonomous Claude routine, 4 runs a day.
+A Discord bot that sits in a voice channel, hears everyone, and talks back like a quick-witted friend: short, casual answers, one reply at a time, and you can talk over it to stop it.
+
+- **Classic mode (default):** speech-to-text (faster-whisper) and text-to-speech (Piper, or your own cloned voice with Coqui XTTS-v2) run on your PC. Only transcript text goes to Gemini.
+- **Live mode (optional):** `/mode live` hands the call to one Gemini Live session in the cloud. No GPU or sidecar needed, but the call's audio goes to Google.
+- **Languages:** it understands and answers in English or Spanish, matching what the person spoke. The clone voice detects the language per sentence.
+
+Requirements: Windows 11 (the scripts are PowerShell), Node 22+ (24 recommended), Python 3.11, ffmpeg, a Discord server you control and a Google AI Studio key. An NVIDIA GPU is optional: it speeds up speech-to-text, and voice cloning needs about 3 GB of free VRAM.
+
+Project docs: SPEC.md (what it should do), DECISIONS.md (choices and why), TASKS.md (plan), AUTODEV.md (status). Most of it was built by an autonomous Claude routine; development now continues in Claude Code sessions.
 
 ## Run it
 Follow SETUP.md (Windows, from zero), then `.\start.ps1` starts the speech sidecar and the bot together. In Discord, join a voice channel and type `/join`.
